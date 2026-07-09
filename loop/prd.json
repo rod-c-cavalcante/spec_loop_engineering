@@ -1,0 +1,43 @@
+{
+  "feature": "001-exemplo-todo-api",
+  "specPath": "specs/001-exemplo-todo-api/spec.md",
+  "planPath": "specs/001-exemplo-todo-api/plan.md",
+  "branchName": "feat/001-exemplo-todo-api",
+  "userStories": [
+    {
+      "id": "T-001",
+      "title": "Bootstrap do projeto Node com gates verdes",
+      "acceptance": "package.json com vitest+supertest; src/app.js responde 404 padrao; ./loop/gates.sh retorna 0",
+      "dependsOn": [],
+      "passes": false
+    },
+    {
+      "id": "T-002",
+      "title": "Store em memoria com testes unitarios",
+      "acceptance": "src/todos/store.js com create/list/get/update/delete, id UUID, ordem de insercao; testes unitarios passando",
+      "dependsOn": ["T-001"],
+      "passes": false
+    },
+    {
+      "id": "T-003",
+      "title": "RF-01 e RF-03: POST /todos e GET /todos",
+      "acceptance": "POST valido retorna 201 com tarefa (done:false); GET retorna 200 com array em ordem de criacao; testes de integracao cobrindo RF-01 e RF-03",
+      "dependsOn": ["T-002"],
+      "passes": false
+    },
+    {
+      "id": "T-004",
+      "title": "RF-02: validacao de title obrigatorio",
+      "acceptance": "POST sem title ou vazio retorna 422 {error:title_required} e nao cria nada; teste cobrindo RF-02",
+      "dependsOn": ["T-003"],
+      "passes": false
+    },
+    {
+      "id": "T-005",
+      "title": "RF-04 e RF-05: PATCH done e 404 para inexistente",
+      "acceptance": "PATCH /todos/{id} {done:true} retorna 200 atualizado; PATCH/DELETE em id inexistente retorna 404 {error:not_found}; testes cobrindo RF-04 e RF-05",
+      "dependsOn": ["T-003"],
+      "passes": false
+    }
+  ]
+}
