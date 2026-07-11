@@ -7,9 +7,11 @@ Este contexto é novo — todo o estado relevante está em arquivos, não em con
 ## Ordem de leitura obrigatória (nesta ordem, antes de qualquer edição)
 1. `CLAUDE.md` — convenções operacionais
 2. `.specify/memory/constitution.md` — regras inegociáveis
-3. `state/progress.md` — aprendizados das iterações anteriores (NÃO repita erros)
-4. `loop/prd.json` — sua fonte de trabalho
-5. A spec e o plan da feature (caminhos indicados no prd.json)
+3. `docs/adr/README.md` — índice de decisões arquiteturais (só títulos + status;
+   carregue o ADR completo apenas se relevante à história desta iteração)
+4. `state/progress.md` — aprendizados das iterações anteriores (NÃO repita erros)
+5. `loop/prd.json` — sua fonte de trabalho
+6. A spec e o plan da feature (caminhos indicados no prd.json)
 
 ## Sua missão nesta iteração
 1. Selecione a PRIMEIRA história com `"passes": false` cujas dependências
@@ -18,6 +20,12 @@ Este contexto é novo — todo o estado relevante está em arquivos, não em con
 3. **TDAD**: escreva primeiro o(s) teste(s) que falham, provando o critério.
 4. Implemente a MENOR mudança coerente que faça os testes passarem.
    Não toque em arquivos fora do escopo da história.
+   **Decisões já registradas em ADR `aceito` não se rediscutem** — siga-as.
+   Se a história exigir uma decisão arquitetural NOVA (cara de reverter ou
+   transversal a features), crie `docs/adr/NNNN-titulo.md` a partir do
+   `docs/adr/template.md` com status `proposto`, atualize o índice e siga —
+   humanos aceitam depois. Se a história CONTRARIAR um ADR aceito, pare:
+   emita `<promise>BLOCKED: conflito com ADR-NNNN — <1 linha></promise>`.
 5. Rode `./loop/gates.sh`. Se falhar, corrija e rode de novo — quantas vezes
    for preciso dentro desta iteração. Gates verdes são pré-condição do passo 6.
 6. Marque `"passes": true` para a história no `loop/prd.json`.
@@ -38,4 +46,5 @@ Este contexto é novo — todo o estado relevante está em arquivos, não em con
 - Declarar sucesso sem gates verdes.
 - Remover/enfraquecer testes para passar.
 - Editar `constitution.md`, fazer push, mexer em mais de uma história.
+- Aceitar, descontinuar ou editar ADRs existentes (agentes só PROPÕEM ADRs).
 - Adicionar dependências sem justificar no plan.md da feature.

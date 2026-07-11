@@ -13,7 +13,8 @@ rodaram — sua auditoria cobre o que gates não conseguem ver.
 1. `.specify/memory/constitution.md`
 2. `loop/prd.json` — identifique a última história marcada `passes: true`
 3. A spec da feature — os critérios EARS que essa história cobre
-4. `git show HEAD` — o diff do último commit
+4. `docs/adr/README.md` — índice de decisões arquiteturais
+5. `git show HEAD` — o diff do último commit
 
 ## Checklist de auditoria (responda item a item, com evidência)
 1. **Aderência EARS**: cada critério coberto pela história tem teste que o
@@ -26,6 +27,10 @@ rodaram — sua auditoria cobre o que gates não conseguem ver.
 4. **Constituição**: alguma das 10 regras violada? (segredos, dependências sem
    justificativa, spec editada sem instrução, etc.)
 5. **Rastreabilidade**: a mensagem de commit referencia a spec?
+6. **Coerência arquitetural (ADRs)**: leia `docs/adr/README.md`. O diff
+   contradiz algum ADR com status `aceito`? Uma decisão arquitetural nova
+   (transversal ou cara de reverter) foi tomada SEM ADR `proposto`
+   correspondente? Ambos os casos são motivo de reprovação.
 
 ## Formato de saída (obrigatório)
 ```

@@ -48,6 +48,19 @@ if git grep -nE "(api[_-]?key|secret|password)\s*=\s*['\"][A-Za-z0-9]{16,}" -- '
   FAILED=1
 fi
 
+# ── ADR lint ─────────────────────────────────────────────────────────────
+# Todo ADR precisa de Status válido; ADRs propostos não bloqueiam, mas avisam.
+if ls docs/adr/[0-9][0-9][0-9][0-9]-*.md >/dev/null 2>&1; then
+  for adr in docs/adr/[0-9][0-9][0-9][0-9]-*.md; do
+    if ! grep -qE "^Status: (proposto|aceito|descontinuado|substituído por ADR-[0-9]{4})" "$adr"; then
+      echo "  ✖ adr-lint: $adr sem Status válido (proposto|aceito|descontinuado|substituído por ADR-NNNN)"
+      FAILED=1
+    fi
+  done
+  PROPOSED=$(grep -l "^Status: proposto" docs/adr/[0-9][0-9][0-9][0-9]-*.md 2>/dev/null | wc -l)
+  [[ $PROPOSED -gt 0 ]] && echo "  ⚠ adr-lint: $PROPOSED ADR(s) com status 'proposto' aguardando decisão humana"
+fi
+
 # ── Resultado ────────────────────────────────────────────────────────────
 if [[ $FAILED -eq 0 ]]; then
   echo "══ GATES: TODOS VERDES ══"

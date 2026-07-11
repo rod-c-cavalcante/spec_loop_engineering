@@ -26,6 +26,7 @@ O resultado: você escreve a spec, aperta o play e revisa PRs — não conversas
 │  specs/NNN-feature/plan.md         ← o COMO técnico         │
 │  specs/NNN-feature/tasks.md        ← decomposição executável│
 │  loop/prd.json                     ← backlog p/ máquina     │
+│  docs/adr/                         ← decisões (o "porquê")  │
 ├─────────────────────────────────────────────────────────────┤
 │  CAMADA 2 · LOOP RUNTIME (padrão Ralph)                     │
 │  loop/ralph.sh          ← o loop: builder → gates → verifier│
@@ -138,6 +139,7 @@ specloop/
 ├── CLAUDE.md                        ← memória do Claude Code (leia!)
 ├── .specify/memory/constitution.md  ← regras inegociáveis
 ├── specs/001-exemplo-todo-api/      ← feature de exemplo (spec/plan/tasks)
+├── docs/adr/                        ← ADRs: template, índice e 3 exemplos
 ├── loop/
 │   ├── ralph.sh                     ← o loop
 │   ├── gates.sh                     ← verificação determinística
@@ -150,6 +152,70 @@ specloop/
 
 ---
 
-*Baseado nos padrões: GitHub Spec Kit (SDD), Ralph loop de Geoffrey Huntley
-(loop engineering), Builder/Verifier (SDD com dois agentes) e nos 3 loops de
-Andrew Ng (código agêntico, feedback do dev, feedback externo).*
+## ADRs — a memória do "porquê" (docs/adr/)
+
+Um **Architecture Decision Record (ADR)** captura UMA decisão arquitetural
+significativa no momento em que foi tomada: contexto, decisão, alternativas
+rejeitadas e consequências aceitas. Formato proposto por Michael Nygard (2011);
+o template deste projeto segue o estilo **MADR** compacto.
+
+Por que o SpecLoop precisa disso: o loop roda com **contexto limpo por
+iteração** (força do padrão Ralph), então o Builder acorda amnésico — e um
+agente sem memória de decisões tende a *re-decidir* o já decidido (ex.: trocar
+o store em memória por SQLite na iteração 14 porque "parece melhor"). O ADR é
+a casa permanente dessas decisões.
+
+Regras de operação (detalhes em `docs/adr/README.md`):
+
+- **Imutável**: ADR aceito nunca é editado — cria-se um novo que o substitui
+  (`Status: substituído por ADR-NNNN`). A trilha histórica é o valor.
+- **Ciclo de vida**: `proposto → aceito → (descontinuado | substituído)`.
+  **Agentes propõem; humanos aceitam** (governança na constitution).
+- **Hierarquia**: ADR aceito fica abaixo da constituição e acima da spec.
+  Conflito spec × ADR → o loop BLOQUEIA e chama humano.
+- **Calibragem**: ADR só para decisão **cara de reverter ou transversal a
+  features** (stack, contratos, persistência, padrões de erro). Decisão local
+  de feature mora no `plan.md`; nome de variável não gera ADR.
+- **Integração no loop**: o Builder lê o índice antes de agir (progressive
+  disclosure), o Verifier reprova diff que contradiz ADR aceito, e o
+  `gates.sh` valida o formato (`adr-lint`) e avisa sobre ADRs pendentes.
+- **Promoção da memória**: `state/progress.md` (tático) → destila → `docs/adr/`
+  (decisões) → promove → `constitution.md` (só regra universal verificável).
+  Expurgo é destilação, não deleção.
+
+Exemplos incluídos: ADR-0001 (aceito), ADR-0002 (substituído) e ADR-0003
+(aceito, substitui o 0002) — leia os três em sequência para ver o ciclo completo.
+
+---
+
+## Referências bibliográficas (ABNT NBR 6023)
+
+COBUSGREYLING. **loop-engineering: practical patterns, starters & CLI tools for loop engineering with AI coding agents**. GitHub, [*S. l.*], 2026. Disponível em: https://github.com/cobusgreyling/loop-engineering. Acesso em: 11 jul. 2026.
+
+GITHUB. **spec-kit: toolkit to help you get started with Spec-Driven Development**. GitHub, [*S. l.*], 2026. Disponível em: https://github.com/github/spec-kit. Acesso em: 11 jul. 2026.
+
+HUNTLEY, Geoffrey. **Everything is a ralph loop**. [*S. l.*], 17 jan. 2026. Disponível em: https://ghuntley.com/loop/. Acesso em: 11 jul. 2026.
+
+HUNTLEY, Geoffrey. **Ralph Wiggum as a "software engineer"**. [*S. l.*], 14 jul. 2025. Disponível em: https://ghuntley.com/ralph/. Acesso em: 11 jul. 2026.
+
+KILO. **What is loop engineering? AI feedback loops**. [*S. l.*], 2026. Disponível em: https://kilo.ai/articles/what-is-loop-engineering. Acesso em: 11 jul. 2026.
+
+LANGCHAIN. **The art of loop engineering**. [*S. l.*], jun. 2026. Disponível em: https://www.langchain.com/blog/the-art-of-loop-engineering. Acesso em: 11 jul. 2026.
+
+MADR. **Markdown Architectural Decision Records**. [*S. l.*], [2018-2026]. Disponível em: https://adr.github.io/madr/. Acesso em: 11 jul. 2026.
+
+MIKEYOBRIEN. **ralph-orchestrator: an improved implementation of the Ralph Wiggum technique for autonomous AI agent orchestration**. GitHub, [*S. l.*], 2026. Disponível em: https://github.com/mikeyobrien/ralph-orchestrator. Acesso em: 11 jul. 2026.
+
+MINDSTUDIO. **What is loop engineering? The new meta for AI coding agents**. [*S. l.*], jun. 2026. Disponível em: https://www.mindstudio.ai/blog/what-is-loop-engineering-ai-coding-agents. Acesso em: 11 jul. 2026.
+
+NYGARD, Michael. **Documenting architecture decisions**. Cognitect Blog, [*S. l.*], 15 nov. 2011. Disponível em: https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions. Acesso em: 11 jul. 2026.
+
+OSMANI, Addy. **Loop engineering**. O'Reilly Radar, [*S. l.*], jun. 2026. Disponível em: https://www.oreilly.com/radar/loop-engineering/. Acesso em: 11 jul. 2026.
+
+SNARKTANK. **ralph: an autonomous AI agent loop that runs repeatedly until all PRD items are complete**. GitHub, [*S. l.*], 2026. Disponível em: https://github.com/snarktank/ralph. Acesso em: 11 jul. 2026.
+
+TOSEA.AI. **What is loop engineering? A complete guide from prompt to harness engineering (2026)**. [*S. l.*], jun. 2026. Disponível em: https://tosea.ai/blog/loop-engineering-ai-agents-complete-guide-2026. Acesso em: 11 jul. 2026.
+
+VERCEL LABS. **ralph-loop-agent: continuous autonomy for the AI SDK**. GitHub, [*S. l.*], 2026. Disponível em: https://github.com/vercel-labs/ralph-loop-agent. Acesso em: 11 jul. 2026.
+
+WATERS, John K. **Loop engineering emerges as developers put AI coding agents on repeat**. ADTmag, [*S. l.*], 1 jul. 2026. Disponível em: https://adtmag.com/articles/2026/07/01/loop-engineering-emerges-as-developers-put-ai-coding-agents-on-repeat.aspx. Acesso em: 11 jul. 2026.

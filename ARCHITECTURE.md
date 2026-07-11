@@ -49,6 +49,7 @@ gera os artefatos; o SpecLoop os executa em loop.
 | `plan.md` | Decisões técnicas, stack, contratos | Mid-term |
 | `tasks.md` | Decomposição com dependências e marcadores [P] de paralelismo | Mid-term |
 | `prd.json` | `tasks.md` traduzido para máquina (`passes: true/false`) | Fonte do loop |
+| `docs/adr/` | Decisões arquiteturais (contexto + alternativas + consequências); imutáveis, substituíveis | Long-term |
 
 **EARS obrigatório nos critérios de aceite.** Os cinco padrões (Ubiquitous,
 Event-driven, State-driven, Unwanted behavior, Optional) reduzem ambiguidade e
@@ -120,6 +121,17 @@ evita o modo de falha clássico: o agente declara vitória com testes quebrados.
 - `MAX_SAME_FAILURE` (default 3): se o mesmo gate falha 3x seguidas, o loop
   para e pede humano — repetir a mesma abordagem que falha é desperdício.
 - `ITERATION_TIMEOUT` (default 20min): mata iterações penduradas.
+
+### ADRs — a memória do "porquê"
+
+O loop tem contexto limpo por iteração (D1); sem memória de decisões, o Builder
+tende a re-decidir o já decidido. Os ADRs (`docs/adr/`) fecham esse buraco:
+o Builder lê o índice (progressive disclosure — títulos + status), segue ADRs
+`aceito`s sem rediscutir, propõe novos (status `proposto`) e bloqueia em
+conflito; o Verifier reprova diffs que contradigam ADR aceito; o `gates.sh`
+valida o formato (adr-lint). Cadeia de promoção: `progress.md` → ADR →
+constituição. ADR é para decisão cara de reverter ou transversal a features —
+decisão local de feature mora no `plan.md`.
 
 ## 4. Camada 3 — Estado & telemetria
 

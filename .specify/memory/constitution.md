@@ -45,3 +45,5 @@
 - Mudanças nesta constituição exigem edição humana explícita (agentes não editam).
 - Em conflito entre constituição e spec, a constituição vence e a spec é corrigida.
 - Revisão trimestral: regras que nunca bloquearam nada são candidatas a remoção.
+- Decisões arquiteturais transversais ou caras de reverter exigem ADR em
+  `docs/adr/` (agentes propõem; humanos aceitam, descontinuam e substituem).

@@ -5,10 +5,20 @@ Você (Claude Code) opera sob as regras abaixo em TODA sessão, interativa ou em
 
 ## Hierarquia de autoridade (em conflito, vence o de cima)
 1. `.specify/memory/constitution.md` — regras inegociáveis
-2. `specs/<feature-ativa>/spec.md` — critérios de aceite (EARS)
-3. `specs/<feature-ativa>/plan.md` — decisões técnicas
-4. Este arquivo — convenções operacionais
-5. Instruções ad-hoc do usuário na sessão
+2. `docs/adr/` (status `aceito`) — decisões arquiteturais; não se rediscutem
+3. `specs/<feature-ativa>/spec.md` — critérios de aceite (EARS)
+4. `specs/<feature-ativa>/plan.md` — decisões técnicas da feature
+5. Este arquivo — convenções operacionais
+6. Instruções ad-hoc do usuário na sessão
+
+Conflito spec × ADR aceito: pare e reporte (BLOCKED) — humano decide se a spec
+está errada ou se o ADR deve ser substituído. Agentes propõem ADRs (status
+`proposto`); nunca aceitam, descontinuam ou editam ADRs existentes.
+
+## Caminho de promoção da memória
+`state/progress.md` (tático) → destila → `docs/adr/` (decisões) → promove →
+`constitution.md` (só regra universal e verificável). Expurgo é destilação,
+não deleção.
 
 ## Workflow obrigatório
 - NUNCA implemente sem spec. Se não existir `specs/NNN-*/spec.md` para o pedido,
