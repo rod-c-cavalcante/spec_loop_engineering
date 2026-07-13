@@ -1,196 +1,244 @@
-# SpecLoop — Projeto-modelo: SDD + Loop Engineering para Claude Code
+# SpecLoop v3.0 — SDD + Loop Engineering para Claude Code
 
-> **A spec é o árbitro. O loop é o motor. Você é o engenheiro que projeta os dois.**
+> **A spec é o árbitro. O loop é o motor. Os gates são a prova.
+> Você é o engenheiro que projeta os três.**
 
-SpecLoop é um template de projeto para Claude Code que une as duas disciplinas mais
-importantes do desenvolvimento com IA em 2026:
+Template de projeto e material didático que une **Spec-Driven Development**
+(GitHub Spec Kit), **Loop Engineering** (padrão Ralph endurecido por produção),
+**DevOps** (CI = os mesmos gates), **FinOps** (custo visível por desenho) e
+**LGPD** (privacy by design como gate, não como cartaz).
 
-1. **Spec-Driven Development (SDD)** — a intenção vira artefato versionado
-   (`constitution.md` → `spec.md` → `plan.md` → `tasks.md`), no padrão do
-   [GitHub Spec Kit](https://github.com/github/spec-kit).
-2. **Loop Engineering** — em vez de você fazer prompt tarefa por tarefa, um loop
-   autônomo (padrão Ralph) executa o backlog história por história, com contexto
-   limpo a cada iteração, verificação obrigatória e estado persistido em git.
-
-O resultado: você escreve a spec, aperta o play e revisa PRs — não conversas.
+**Para quem é**: estudantes de engenharia com IA (trilha de aprendizado
+abaixo) e fábricas de software (padrões de governança, métricas e compliance
+prontos para operar em escala).
 
 ---
+
+## Índice
+
+1. [A ideia em 60 segundos](#a-ideia-em-60-segundos)
+2. [Arquitetura em 3 camadas](#arquitetura-em-3-camadas)
+3. [Quickstart](#quickstart-10-minutos)
+4. [Trilha de aprendizado (estudantes)](#trilha-de-aprendizado)
+5. [O loop em detalhe](#os-5-blocos-do-loop)
+6. [ADRs — a memória do "porquê"](#adrs--a-memória-do-porquê-docsadr)
+7. [Painel de métricas (4 famílias)](#painel-de-métricas)
+8. [DevOps · FinOps · LGPD](#devops--finops--lgpd)
+9. [Segurança e escala](#regras-de-segurança)
+10. [FAQ](#faq)
+11. [Glossário](#glossário)
+12. [Referências (ABNT)](#referências-bibliográficas-abnt-nbr-6023)
+
+---
+
+## A ideia em 60 segundos
+
+No **prompt engineering**, você dirige o carro: cada curva exige sua mão no
+volante. No **loop engineering**, você projeta o piloto automático e o painel:
+define o destino (**spec** com critérios EARS), os sensores (**gates**:
+testes, lint, build), o critério de chegada (**verificação** determinística +
+agêntica) e as travas (**limites** de iteração, custo e risco). Um loop
+(`ralph.sh`) executa o backlog história por história, com contexto limpo a
+cada iteração e memória em git + arquivos — e você revisa PRs, não conversas.
+
+O que diferencia este template: **cada mecanismo foi financiado por uma falha
+real de produção** (retrospectiva de 8 features — `ARCHITECTURE.md §7`).
+Nada aqui é especulação; é cicatriz transformada em código.
 
 ## Arquitetura em 3 camadas
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  CAMADA 1 · INTENT HARNESS (compatível com Spec Kit)        │
-│  .specify/memory/constitution.md   ← regras inegociáveis    │
-│  specs/NNN-feature/spec.md         ← o QUÊ e POR QUÊ (EARS) │
+│  .specify/memory/constitution.md   ← 13 regras verificáveis │
+│  specs/NNN-feature/spec.md         ← o QUÊ (EARS) + LGPD    │
 │  specs/NNN-feature/plan.md         ← o COMO técnico         │
-│  specs/NNN-feature/tasks.md        ← decomposição executável│
+│  docs/adr/                         ← decisões (o PORQUÊ)    │
 │  loop/prd.json                     ← backlog p/ máquina     │
-│  docs/adr/                         ← decisões (o "porquê")  │
 ├─────────────────────────────────────────────────────────────┤
-│  CAMADA 2 · LOOP RUNTIME (padrão Ralph)                     │
-│  loop/ralph.sh          ← o loop: builder → gates → verifier│
-│  loop/PROMPT_BUILD.md   ← alma do agente Builder            │
-│  loop/PROMPT_VERIFY.md  ← alma do agente Verifier           │
-│  loop/gates.sh          ← backpressure: lint, test, build   │
+│  CAMADA 2 · LOOP RUNTIME (padrão Ralph endurecido)          │
+│  loop/preflight.sh  ← lock, tree limpo, consistência        │
+│  loop/ralph.sh      ← o loop: risk, checkpoint, breaker     │
+│  loop/gates.sh      ← prova estratificada L0/L1/L2          │
+│  loop/smoke.sh      ← rebuild limpo + HTTP real (L2)        │
+│  loop/PROMPT_*.md   ← almas dos agentes Builder e Verifier  │
 ├─────────────────────────────────────────────────────────────┤
-│  CAMADA 3 · ESTADO & TELEMETRIA                             │
-│  git (commits atômicos)  ← memória durável do progresso     │
-│  state/progress.md       ← aprendizados entre iterações     │
-│  state/metrics.csv       ← tokens/iteração → HDE            │
+│  CAMADA 3 · ESTADO, MÉTRICAS & ENTREGA                      │
+│  git + state/progress.md           ← memória durável        │
+│  state/metrics*.csv + verdicts.csv ← painel de 4 famílias   │
+│  .github/workflows/ci.yml          ← CI = os mesmos gates   │
+│  loop/metrics_report.py            ← comenta o painel no PR │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-Leia `ARCHITECTURE.md` para o detalhamento completo (decisões, trade-offs,
-escalabilidade com git worktrees e o loop de feedback Intent→Spec / Spec→Impl).
-
----
+Detalhamento completo, decisões e trade-offs: **`ARCHITECTURE.md`**.
 
 ## Quickstart (10 minutos)
 
-### Passo 0 — Pré-requisitos
-- [Claude Code](https://docs.claude.com/en/docs/claude-code) instalado e autenticado
-- `git`, `jq` e `bash`
-- (Opcional, recomendado) [Spec Kit CLI](https://github.com/github/spec-kit):
-  `uv tool install specify-cli --from git+https://github.com/github/spec-kit.git`
-
-### Passo 1 — Clonar este template
 ```bash
-cp -r specloop meu-projeto && cd meu-projeto && git init && git add -A && git commit -m "chore: bootstrap SpecLoop"
+# 0. Pré-requisitos: Claude Code autenticado, git, jq, python3, bash
+# 1. Clonar e inicializar
+cp -r specloop meu-projeto && cd meu-projeto
+git init && git add -A && git commit -m "chore: bootstrap SpecLoop v3"
+git config core.hooksPath githooks          # gates L0 em todo commit humano
+
+# 2. (Recomendado) Spec Kit por cima — mesmas convenções, zero conflito
+specify init . --force --integration claude # instala /speckit.* no Claude Code
+
+# 3. Escrever a constituição e a primeira spec
+#    /speckit.constitution → /speckit.specify → clarify → plan → tasks
+#    (ou copie o formato de specs/001-exemplo-todo-api — EARS + seção LGPD)
+#    Transcreva as tasks para loop/prd.json (id, acceptance, risk, e2eScope)
+
+# 4. Rodar
+./loop/ralph.sh --dry-run   # plano: id · risk · e2eScope, sem executar
+./loop/ralph.sh             # preflight → loop → gates L1 → S-RELEASE (L2)
+
+# 5. Revisar e medir
+git log --oneline && cat state/progress.md
+python3 loop/metrics_report.py             # painel das 4 famílias
 ```
 
-### Passo 2 — (Opcional) Integrar o Spec Kit por cima
-```bash
-specify init . --force --integration claude
-```
-Isso instala os slash commands `/speckit.*` no `.claude/commands/`. O SpecLoop foi
-desenhado para conviver com eles: a `constitution.md` fica no mesmo lugar
-(`.specify/memory/`) e o diretório `specs/NNN-feature/` segue a mesma convenção.
+O loop **para sozinho** em três situações desenhadas: história `risk: high`
+concluída (checkpoint humano), mesma falha 3x (circuit breaker) e bloqueio
+reportado pelo agente. Parar é feature, não bug.
 
-### Passo 3 — Escrever a constituição
-Abra o Claude Code e rode:
-```
-/speckit.constitution   (se instalou o Spec Kit)
-```
-Ou edite manualmente `.specify/memory/constitution.md` — já vem com 10 regras
-de exemplo comentadas. **Regra de ouro: 5 a 10 regras, todas verificáveis.**
+## Trilha de aprendizado
 
-### Passo 4 — Especificar a primeira feature
-```
-/speckit.specify  →  /speckit.clarify  →  /speckit.plan  →  /speckit.tasks
-```
-Ou copie `specs/001-exemplo-todo-api/` como referência de formato (EARS incluso).
-Depois, transcreva as histórias para `loop/prd.json` (cada história = um item
-com `id`, `title`, `acceptance` e `passes: false`).
+Para estudantes — cada nível destrava o seguinte:
 
-### Passo 5 — Rodar o loop
-```bash
-./loop/ralph.sh            # roda até completar ou atingir MAX_ITERATIONS
-./loop/ralph.sh --dry-run  # mostra o que faria, sem chamar o agente
-```
+- **Nível 0 · Leitor** — leia `README` + `ARCHITECTURE.md`; rode
+  `./loop/ralph.sh --dry-run` e explique o plano para alguém.
+- **Nível 1 · Especificador** — escreva UMA spec real com 5 requisitos EARS e
+  a seção LGPD; passe no lgpd-lint. (A habilidade mais valiosa da era dos
+  agentes é articular intenção verificável.)
+- **Nível 2 · Operador de loop** — rode o loop na sua spec; sobreviva a um
+  circuit breaker lendo as asserções e corrigindo cirurgicamente; leia o
+  painel e explique seu FPSR.
+- **Nível 3 · Engenheiro de harness** — provoque os 3 gaps de propósito
+  (spec ambígua, gate fraco, mock mentiroso) e conserte cada um no lugar
+  certo; escreva seu primeiro ADR.
+- **Nível 4 · Fábrica** — 2 features em paralelo com git worktrees; branch
+  protection + CI; apresente o `metrics_history.csv` como um gerente de
+  engenharia apresentaria.
 
-### Passo 6 — Revisar
-```bash
-git log --oneline          # commits atômicos por história
-cat state/progress.md      # o que o loop aprendeu
-cat loop/prd.json | jq '.userStories[] | {id, passes}'
-```
-
----
-
-## Os 5 blocos do loop (e onde cada um mora)
+## Os 5 blocos do loop
 
 | Bloco | Função | Arquivo |
 |---|---|---|
-| 1. Fonte de trabalho | O que fazer a seguir | `loop/prd.json` (derivado de `specs/`) |
+| 1. Fonte de trabalho | O que fazer a seguir | `loop/prd.json` (de `specs/`) |
 | 2. Executor | Quem faz | Claude Code via `loop/PROMPT_BUILD.md` |
-| 3. Verificador | "Pronto" significa algo | `loop/gates.sh` + `loop/PROMPT_VERIFY.md` |
-| 4. Estado | Memória fora do contexto | git + `state/progress.md` |
-| 5. Travas | Não explodir custo/risco | `MAX_ITERATIONS`, timeout, circuit breaker no `ralph.sh` |
+| 3. Verificador | "Pronto" é prova, não alegação | `gates.sh` L0/L1/L2 + `smoke.sh` + Verifier |
+| 4. Estado | Memória fora do contexto | git + `state/progress.md` + ADRs |
+| 5. Travas | Custo/risco sob controle | preflight, MAX_ITERATIONS, breaker, checkpoint por risco |
 
----
-
-## Regras de segurança (leia antes de rodar sem supervisão)
-
-1. **Nunca** rode o loop com credenciais de produção no ambiente.
-2. Comece com `MAX_ITERATIONS=5` e aumente conforme a confiança.
-3. O loop só encerra com sucesso quando o Builder emite `<promise>COMPLETE</promise>`
-   **e** todos os gates passam — "pronto" é uma alegação; os gates são a prova.
-4. Revise TODO commit. Dívida de compreensão cresce mais rápido que o código.
-5. Um bug que passou pelos gates é feedback sobre o sistema: registre em
-   `state/progress.md` se foi gap Spec→Implementação (melhore os gates) ou
-   Intent→Spec (melhore a spec/clarify).
-
-## Escalando (quando uma feature virar dez)
-
-- **Paralelismo**: uma feature = uma branch = um `git worktree`. Rode um
-  `ralph.sh` por worktree; os arquivos nunca colidem. Ver `ARCHITECTURE.md §5`.
-- **Brownfield**: use `/speckit.converge` para reconciliar codebase × spec e
-  gerar as tasks restantes — ele é, na prática, uma iteração de loop manual.
-- **Métricas**: `state/metrics.csv` acumula tokens por iteração. HDE =
-  custo em tokens (R$) ÷ custo/hora do dev (R$) → minutos-equivalentes.
-
-## Estrutura de diretórios
-
-```
-specloop/
-├── README.md                        ← você está aqui
-├── ARCHITECTURE.md                  ← arquitetura detalhada e decisões
-├── CLAUDE.md                        ← memória do Claude Code (leia!)
-├── .specify/memory/constitution.md  ← regras inegociáveis
-├── specs/001-exemplo-todo-api/      ← feature de exemplo (spec/plan/tasks)
-├── docs/adr/                        ← ADRs: template, índice e 3 exemplos
-├── loop/
-│   ├── ralph.sh                     ← o loop
-│   ├── gates.sh                     ← verificação determinística
-│   ├── PROMPT_BUILD.md              ← agente Builder
-│   ├── PROMPT_VERIFY.md             ← agente Verifier
-│   └── prd.json                     ← backlog executável
-├── .claude/commands/                ← slash commands utilitários
-└── state/                           ← progress.md + metrics.csv
-```
-
----
+Uma iteração = contexto limpo → lê estado → 1 história → TDAD → menor mudança
+→ gates → registra → commit atômico → morre. O estado sobrevive; o contexto não.
 
 ## ADRs — a memória do "porquê" (docs/adr/)
 
-Um **Architecture Decision Record (ADR)** captura UMA decisão arquitetural
-significativa no momento em que foi tomada: contexto, decisão, alternativas
-rejeitadas e consequências aceitas. Formato proposto por Michael Nygard (2011);
-o template deste projeto segue o estilo **MADR** compacto.
+O Builder acorda amnésico a cada iteração (por design) — sem memória de
+decisões, ele re-decide o já decidido. ADRs (formato Nygard/MADR) são a casa
+permanente: imutáveis (substitui-se, não se edita), com ciclo
+`proposto → aceito → substituído` onde **agentes propõem e humanos aceitam**.
+ADR aceito fica acima da spec na hierarquia; conflito → loop bloqueia.
+Calibragem: só decisão **cara de reverter ou transversal** (o resto é plan.md).
+Leia os exemplos 0001–0005 (dois nasceram de incidentes reais de produção).
 
-Por que o SpecLoop precisa disso: o loop roda com **contexto limpo por
-iteração** (força do padrão Ralph), então o Builder acorda amnésico — e um
-agente sem memória de decisões tende a *re-decidir* o já decidido (ex.: trocar
-o store em memória por SQLite na iteração 14 porque "parece melhor"). O ADR é
-a casa permanente dessas decisões.
+Caminho de promoção da memória: `progress.md` → destila → **ADR** (julgamento)
+ou **código** (lição determinística, §12) → promove → **constituição** (regra
+universal). Expurgo é destilação, não deleção.
 
-Regras de operação (detalhes em `docs/adr/README.md`):
+## Painel de métricas
 
-- **Imutável**: ADR aceito nunca é editado — cria-se um novo que o substitui
-  (`Status: substituído por ADR-NNNN`). A trilha histórica é o valor.
-- **Ciclo de vida**: `proposto → aceito → (descontinuado | substituído)`.
-  **Agentes propõem; humanos aceitam** (governança na constitution).
-- **Hierarquia**: ADR aceito fica abaixo da constituição e acima da spec.
-  Conflito spec × ADR → o loop BLOQUEIA e chama humano.
-- **Calibragem**: ADR só para decisão **cara de reverter ou transversal a
-  features** (stack, contratos, persistência, padrões de erro). Decisão local
-  de feature mora no `plan.md`; nome de variável não gera ADR.
-- **Integração no loop**: o Builder lê o índice antes de agir (progressive
-  disclosure), o Verifier reprova diff que contradiz ADR aceito, e o
-  `gates.sh` valida o formato (`adr-lint`) e avisa sobre ADRs pendentes.
-- **Promoção da memória**: `state/progress.md` (tático) → destila → `docs/adr/`
-  (decisões) → promove → `constitution.md` (só regra universal verificável).
-  Expurgo é destilação, não deleção.
+`python3 loop/metrics_report.py` (terminal) · `--md` (PR) · `--snapshot`
+(acumula em `state/metrics_history.csv`). A CI comenta o painel em todo PR.
 
-Exemplos incluídos: ADR-0001 (aceito), ADR-0002 (substituído) e ADR-0003
-(aceito, substitui o 0002) — leia os três em sequência para ver o ciclo completo.
+| Família | Mede | Métricas | Contrapeso (anti-Goodhart) |
+|---|---|---|---|
+| **A. Harness** | qualidade da spec | First-Pass Success Rate; gaps Intent→Spec / Spec→Impl / Spec→Oráculo | FPSR alto + defeitos escapados = gates fracos |
+| **B. Loop** | execução | iterações/história; aprovação do Verifier (1ª); retrabalho; autonomia; latência L0/L1/L2 | autonomia alta + retrabalho alto = loop girando à toa |
+| **C. FinOps** | economia | custo/feature; custo do retrabalho; HDE (min-equivalentes) | custo baixo + FPSR baixo = economia no lugar errado |
+| **D. DORA** | entrega | lead time (git); deploys/semana (git); CFR e MTTR (produção) | lead time menor + CFR maior = custo transferido p/ produção |
 
----
+Regra de leitura: **termômetro, não meta** (Lei de Goodhart). Nenhuma métrica
+isolada vira OKR; decisões usam o par métrica+contrapeso e a tendência no
+histórico acumulado.
+
+## DevOps · FinOps · LGPD
+
+- **DevOps (`docs/DEVOPS.md`)** — trunk-based com 1 feature = 1 worktree = 1
+  loop; hook de pre-commit; **CI rodando os mesmos gates** (L0 em push, L2 em
+  PR — fonte única de "pronto"); branch protection; 12-Factor; deploy = merge;
+  incidentes retornam como gaps classificados.
+- **FinOps (`docs/FINOPS.md`)** — informar (custo por iteração no CSV),
+  otimizar (retrabalho > latência de gate > fatia fina > modelo por risco),
+  operar (HDE como unit economics; calibração mensal; circuit breaker como
+  mecanismo de orçamento).
+- **LGPD (`docs/LGPD.md`)** — privacy by design mecânico: toda spec declara
+  `## Dados pessoais (LGPD)` (dados, base legal, retenção, minimização) e o
+  **lgpd-lint bloqueia** spec sem análise; PII em log é reprovação do
+  Verifier; deleção de dados é sempre `risk: high`; dado sensível (Art. 11)
+  → BLOCKED até humano/DPO. A rastreabilidade do SDD vira insumo de RIPD.
+
+## Regras de segurança
+
+1. Nunca rode o loop com credenciais de produção. 2. Comece com
+`MAX_ITERATIONS=5`. 3. "Pronto" = promise **E** gates **E** backlog zerado.
+4. Revise TODO commit — dívida de compreensão cresce mais rápido que código.
+5. Todo bug é feedback: classifique o gap (`[gap:intent-spec]`,
+`[gap:spec-impl]`, `[gap:spec-oraculo]`) e conserte o SISTEMA, não só o bug.
+6. Paralelismo SÓ via `git worktree` (o preflight torna a colisão impossível
+— ADR-0004). 7. Overrides (`ALLOW_DIRTY`, `OVERRIDE_MERGED`, `NO_CHECKPOINT`)
+existem para serem usados conscientemente e raramente.
+
+## FAQ
+
+**O loop travou no circuit breaker. E agora?** Leia as asserções que falharam
+(`./loop/gates.sh --level 1 --scope @tag`), corrija a MESMA história
+cirurgicamente, rode de novo. Não descarte trabalho, não pule história.
+
+**Posso usar outro agente que não o Claude Code?** Sim — `AGENT_CMD` é
+configurável; os prompts são markdown puro.
+
+**Por que minha história não roda?** Dependência (`dependsOn`) pendente, ou o
+preflight bloqueou (leia a mensagem — ela cita o incidente que a justifica).
+
+**gates.sh verde basta para dar merge?** Não. S-RELEASE (L2 + smoke) verde +
+Verifier APROVADO + revisão humana. As 4 provas estão no template de PR.
+
+**Specs dão trabalho. Vale a pena?** FPSR responde com números: spec ruim =
+FPSR baixo = retrabalho pago em tokens e tempo. A spec é a otimização FinOps
+mais barata do sistema.
+
+**Preciso do Spec Kit?** Não, mas ajuda: os slash commands `/speckit.*`
+automatizam constitution→specify→plan→tasks e o SpecLoop consome o resultado.
+
+## Glossário
+
+**EARS** formato de requisito verificável (WHEN/IF...THE SYSTEM SHALL) ·
+**FPSR** % de histórias verdes na 1ª iteração · **Gap Intent→Spec** a spec
+não capturou a intenção · **Gap Spec→Impl** o código divergiu da spec ·
+**Gap Spec→Oráculo** os testes não representam a spec (mock que confirma o
+bug) · **Gates L0/L1/L2** prova rápida / seletiva / de release · **HDE**
+horas-dev equivalentes (custo do loop ÷ custo-hora) · **Harness** o arnês de
+intenção (constituição+specs+ADRs) · **Ralph** padrão de loop com contexto
+limpo e estado em git · **S-RELEASE** história sintética que prova a feature
+inteira (L2) · **TDAD** teste falha antes, passa depois · **Verifier** agente
+auditor que aprova/reprova com evidências · **Worktree** checkout paralelo do
+mesmo repo (1 por agente).
 
 ## Referências bibliográficas (ABNT NBR 6023)
 
+BRASIL. **Lei nº 13.709, de 14 de agosto de 2018 (Lei Geral de Proteção de Dados Pessoais — LGPD)**. Brasília, DF: Presidência da República, 2018. Disponível em: https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm. Acesso em: 13 jul. 2026.
+
 COBUSGREYLING. **loop-engineering: practical patterns, starters & CLI tools for loop engineering with AI coding agents**. GitHub, [*S. l.*], 2026. Disponível em: https://github.com/cobusgreyling/loop-engineering. Acesso em: 11 jul. 2026.
+
+DORA. **DORA research: metrics for software delivery performance**. [*S. l.*], 2026. Disponível em: https://dora.dev. Acesso em: 13 jul. 2026.
+
+FINOPS FOUNDATION. **What is FinOps?** [*S. l.*], 2026. Disponível em: https://www.finops.org/introduction/what-is-finops/. Acesso em: 13 jul. 2026.
+
+FORSGREN, Nicole; HUMBLE, Jez; KIM, Gene. **Accelerate: the science of lean software and DevOps**. Portland: IT Revolution Press, 2018.
 
 GITHUB. **spec-kit: toolkit to help you get started with Spec-Driven Development**. GitHub, [*S. l.*], 2026. Disponível em: https://github.com/github/spec-kit. Acesso em: 11 jul. 2026.
 
@@ -218,4 +266,6 @@ TOSEA.AI. **What is loop engineering? A complete guide from prompt to harness en
 
 VERCEL LABS. **ralph-loop-agent: continuous autonomy for the AI SDK**. GitHub, [*S. l.*], 2026. Disponível em: https://github.com/vercel-labs/ralph-loop-agent. Acesso em: 11 jul. 2026.
 
-WATERS, John K. **Loop engineering emerges as developers put AI coding agents on repeat**. ADTmag, [*S. l.*], 1 jul. 2026. Disponível em: https://adtmag.com/articles/2026/07/01/loop-engineering-emerges-as-developers-put-ai-coding-agents-on-repeat.aspx. Acesso em: 11 jul. 2026.
+WATERS, John K. **Loop engineering emerges as developers put AI coding agents on repeat**. ADTmag, [*S. l.*], 1 jul. 2026. Disponível em: https://adtmag.com/articles/2026/07/01/loop-engineering-emerges-as-developers-put-ai-coding-agents-on-repeat.aspx. Acesso em: 13 jul. 2026.
+
+WIGGINS, Adam. **The twelve-factor app**. [*S. l.*], 2017. Disponível em: https://12factor.net/pt_br/. Acesso em: 13 jul. 2026.

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# SpecLoop · pre-commit — gates L0 antes de QUALQUER commit humano.
+# (O loop já roda gates por conta própria; este hook protege commits manuais.)
+# Instalação (1x por clone): git config core.hooksPath githooks
+echo "pre-commit: gates L0…"
+./loop/gates.sh --level 0 || {
+  echo "✖ commit bloqueado: gates L0 falharam. Corrija ou (com MUITO bom motivo) use --no-verify."
+  exit 1
+}

@@ -47,3 +47,22 @@
 - Revisão trimestral: regras que nunca bloquearam nada são candidatas a remoção.
 - Decisões arquiteturais transversais ou caras de reverter exigem ADR em
   `docs/adr/` (agentes propõem; humanos aceitam, descontinuam e substituem).
+
+## Regras adicionadas na v2.0 (origem: retrospectiva de produção)
+
+11. **Mock só na fronteira do sistema.** APIs externas, e-mail e pagamento
+    podem ser mocados; dependências internas (banco, sessão, filas) testam
+    contra implementação real ou fake de alta fidelidade. `MagicMock` em alvo
+    async é reprovado pelo gate (mock-lint) — o Builder não pode ser o único
+    autor do próprio oráculo.
+
+12. **Lição determinística vira código, não texto.** Todo gotcha reproduzível
+    registrado 2x no progress.md deve ser promovido a mecanismo (preflight,
+    gate, hook ou script) no expurgo seguinte. Só lição de julgamento
+    permanece como documentação (ADR/constituição).
+
+13. **Privacy by design (LGPD, Art. 46 §2º).** Toda spec contém a seção
+    "## Dados pessoais (LGPD)" (dados tocados ou "nenhum", base legal,
+    retenção, minimização) — validada pelo lgpd-lint. Dado pessoal em log é
+    reprovação. Deleção de dados pessoais é sempre `risk: high`. Dados
+    sensíveis (Art. 11) exigem humano/DPO antes do loop.

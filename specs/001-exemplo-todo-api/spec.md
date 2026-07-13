@@ -47,6 +47,14 @@ THEN THE SYSTEM SHALL responder `404` com `{ "error": "not_found" }`.
 - Paginação, filtros, ordenação customizada
 - Frontend
 
+## Dados pessoais (LGPD)
+
+- **Dados tocados**: nenhum nesta feature (tarefas não contêm dados pessoais;
+  não há usuários/autenticação — ver out of scope).
+- **Base legal**: n/a. | **Retenção**: n/a (dados voláteis em memória, ADR-0001).
+- **Minimização**: o campo `title` é livre — a UI deve orientar a não inserir
+  dados pessoais; feature de contas (futura) fará a análise completa.
+
 ## Critérios de pronto (definition of done)
 
 - [ ] Todos os RF acima cobertos por testes automatizados que passam

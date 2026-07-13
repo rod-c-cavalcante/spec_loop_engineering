@@ -177,3 +177,42 @@ os loops — e é onde o valor composto mora.
 - Não é multi-agente orquestrado. É um loop monolítico deliberado.
 - Não é recomendado para tarefas triviais — uma sessão interativa é mais rápida
   e segura para mudanças de 10 minutos. Loop é para backlog, não para hotfix.
+
+## 7. Aprendizados de produção (v2.0 — origem: retrospectiva forja_platform)
+
+A v2.0 nasceu de execução real (features 002–009 de um produto em produção).
+Cada mecanismo abaixo é financiado por uma falha específica — nenhum é especulação:
+
+| Mecanismo v2 | Falha que o financiou |
+|---|---|
+| Gates L0/L1/L2 + `e2eScope` + história S-RELEASE | 10–22 min/iteração com 93 E2E sequenciais p/ diff de 2 arquivos |
+| `preflight.sh`: lock + tree limpo (ADR-0004) | Perda real de trabalho por 2 agentes no mesmo working tree |
+| `preflight.sh`: consistência tripla + merged-guard (ADR-0005) | Template sobrescreveu plan.md de feature já mesclada |
+| mock-lint + constitution §11 + Verifier audita oráculo | `MagicMock` em alvo async CONFIRMOU o bug do DELETE sem await |
+| `smoke.sh` como parte do gate L2 | Bugs graves só apareciam em rebuild limpo + HTTP real — etapa pulável virou portão |
+| prd-lint (fatia fina) | História bundlando 2 endpoints + 2 páginas falhou 4 E2E |
+| Campo `risk` + checkpoint | Bugs graves concentrados em auth/permissões/deleção; babysitting uniforme era caro |
+| Constitution §12 (lição determinística vira código) | Gotcha do Vite HMR redescoberto em 3+ features mesmo documentado |
+
+O terceiro gap: além de Intent→Spec e Spec→Implementação, produção revelou o
+gap **Spec→Oráculo** — a suíte de testes não representa fielmente a spec quando
+o mesmo agente escreve o bug e o mock que o confirma. Correção em camadas:
+regra de fronteira (§11), gate heurístico (mock-lint) e segundo autor do
+oráculo (Verifier). Classifique bugs de produção também nesta categoria.
+
+Princípio-mestra da v2: **tudo que era mecanismo funcionou; tudo que era
+recomendação falhou.** Na dúvida entre documentar e automatizar, automatize.
+
+## 8. Painel de métricas, DevOps, FinOps e LGPD (v3.0)
+
+A Camada 3 ganhou telemetria de decisão: `loop/metrics_report.py` consolida
+4 famílias pareadas (Harness/FPSR+gaps, Loop/iterações+Verifier+autonomia,
+FinOps/custo+HDE+retrabalho, DORA/lead time+deploy freq com CFR/MTTR manuais),
+acumula snapshots por feature em `state/metrics_history.csv` e a CI comenta o
+painel em cada PR — custo, qualidade e entrega no ponto da decisão de merge.
+Fontes: metrics.csv (ralph), verdicts.csv (Verifier) e tags [gap:*] no
+progress.md. Princípio de leitura: termômetro, não meta (Goodhart) — sempre
+o par métrica+contrapeso. DevOps: CI executa os MESMOS gates (fonte única de
+"pronto"); ver docs/DEVOPS.md. FinOps: ver docs/FINOPS.md. LGPD: privacy by
+design mecânico via seção obrigatória na spec + lgpd-lint + auditoria do
+Verifier (constituição §13); ver docs/LGPD.md.

@@ -24,6 +24,11 @@ rodaram — sua auditoria cobre o que gates não conseguem ver.
    (Constitution §4 — menor mudança coerente.)
 3. **Qualidade dos testes**: os testes falhariam se a implementação estivesse
    errada? Há assert real ou é teste decorativo? Algum teste foi enfraquecido?
+   **Auditoria do oráculo (constitution §11)**: os mocks refletem o contrato
+   REAL da biblioteca (async/await, tipos de retorno) ou refletem o código sob
+   teste? Dependência interna mocada onde deveria haver fake real? Falta
+   `assert_awaited` onde o contrato exige await? Mock que confirma o bug é
+   REPROVAÇÃO — o Builder não pode ser o único autor do próprio oráculo.
 4. **Constituição**: alguma das 10 regras violada? (segredos, dependências sem
    justificativa, spec editada sem instrução, etc.)
 5. **Rastreabilidade**: a mensagem de commit referencia a spec?
@@ -31,6 +36,10 @@ rodaram — sua auditoria cobre o que gates não conseguem ver.
    contradiz algum ADR com status `aceito`? Uma decisão arquitetural nova
    (transversal ou cara de reverter) foi tomada SEM ADR `proposto`
    correspondente? Ambos os casos são motivo de reprovação.
+
+7. **LGPD (constitution §13)**: o diff coleta/loga dado pessoal além do
+   declarado na seção LGPD da spec? Logs mascarados? Deleção de dado pessoal
+   marcada como risk: high no prd.json?
 
 ## Formato de saída (obrigatório)
 ```
@@ -44,5 +53,9 @@ CLASSIFICAÇÃO (só se REPROVADO):
 - gap Intent→Spec (a spec era ambígua/incompleta — cite o trecho)
 ```
 
-Se REPROVADO, acrescente uma linha em `state/progress.md`:
-`⚠ Verifier reprovou <história>: <motivo> [<classificação do gap>]`
+## Registro do veredito (alimenta o painel de métricas)
+SEMPRE acrescente uma linha em `state/verdicts.csv` (crie com header
+`timestamp,story,verdict,gap` se não existir):
+`<ISO8601>,<história>,<APROVADO|REPROVADO>,<intent-spec|spec-impl|spec-oraculo|>`
+Se REPROVADO, acrescente também em `state/progress.md`:
+`⚠ Verifier reprovou <história>: <motivo> [gap:<intent-spec|spec-impl|spec-oraculo>]`

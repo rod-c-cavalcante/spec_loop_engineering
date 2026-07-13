@@ -1,0 +1,72 @@
+# =============================================================================
+# SpecLoop · CI — princípio: a CI roda OS MESMOS gates que o loop roda local.
+# Uma única fonte de verdade de "pronto" (loop/gates.sh); zero drift entre
+# "passou na minha máquina" e "passou no PR".
+# =============================================================================
+name: gates
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  gates-l0:
+    name: Gates L0 (rápido — todo push)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+        if: hashFiles('package.json') != ''
+      - run: npm ci
+        if: hashFiles('package-lock.json') != ''
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+        if: hashFiles('pyproject.toml', 'requirements.txt') != ''
+      - run: pip install -r requirements.txt ruff pytest
+        if: hashFiles('requirements.txt') != ''
+      - name: Gates L0
+        run: ./loop/gates.sh --level 0
+
+  gates-l2:
+    name: Gates L2 (release — PR para main)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+        if: hashFiles('package.json') != ''
+      - run: npm ci
+        if: hashFiles('package-lock.json') != ''
+      - name: Gates L2 (E2E completo + smoke com rebuild limpo)
+        run: ./loop/gates.sh --level 2
+
+  metrics:
+    name: Painel de métricas no PR
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }   # histórico completo p/ DORA (lead time)
+      - name: Gerar painel + snapshot acumulado
+        run: |
+          python3 loop/metrics_report.py --md --snapshot > pr_metrics.md
+          cat pr_metrics.md
+      - name: Comentar no PR (sticky)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('pr_metrics.md', 'utf8');
+            const marker = '## 📊 SpecLoop';
+            const {data: comments} = await github.rest.issues.listComments({
+              ...context.repo, issue_number: context.issue.number});
+            const prev = comments.find(c => c.body.startsWith(marker));
+            if (prev) {
+              await github.rest.issues.updateComment({...context.repo, comment_id: prev.id, body});
+            } else {
+              await github.rest.issues.createComment({...context.repo, issue_number: context.issue.number, body});
+            }

@@ -15,10 +15,12 @@ Conflito spec × ADR aceito: pare e reporte (BLOCKED) — humano decide se a spe
 está errada ou se o ADR deve ser substituído. Agentes propõem ADRs (status
 `proposto`); nunca aceitam, descontinuam ou editam ADRs existentes.
 
-## Caminho de promoção da memória
-`state/progress.md` (tático) → destila → `docs/adr/` (decisões) → promove →
-`constitution.md` (só regra universal e verificável). Expurgo é destilação,
-não deleção.
+## Caminho de promoção da memória (v2: quatro destinos)
+`state/progress.md` (tático) destila para: (a) `docs/adr/` se decisão de
+julgamento; (b) `constitution.md` se regra universal verificável; (c) **CÓDIGO**
+(preflight/gate/hook/script) se lição determinística — gotcha reproduzível
+registrado 2x DEVE virar mecanismo (constitution §12); (d) deleção se obsoleto.
+Expurgo é destilação, não deleção.
 
 ## Workflow obrigatório
 - NUNCA implemente sem spec. Se não existir `specs/NNN-*/spec.md` para o pedido,
@@ -30,7 +32,15 @@ não deleção.
 - Commits atômicos com referência à spec:
   `feat(todos): valida title obrigatório, refs specs/001-exemplo-todo-api/spec.md`
 
-## Protocolo do loop (quando executado via loop/ralph.sh)
+## Protocolo do loop v2 (quando executado via loop/ralph.sh)
+- O loop roda preflight (lock, tree limpo, consistência, merged-guard) antes
+  de você existir; se você rodar scripts de setup manualmente, chame
+  `./loop/preflight.sh` antes.
+- Gates são estratificados: L1 seletivo (`--scope <e2eScope>`) por história;
+  L2 (E2E completo + smoke real) só na história sintética S-RELEASE.
+- Histórias `risk: high` (auth, permissões, deleção, pagamento) param o loop
+  para checkpoint humano após concluídas — é intencional, não erro.
+- Fatia fina: 1 endpoint OU 1 página por história de implementação.
 - Sua fonte de trabalho é `loop/prd.json`. Pegue a PRIMEIRA história com
   `passes: false`. Ignore as demais nesta iteração.
 - Leia `state/progress.md` ANTES de agir — contém aprendizados das iterações

@@ -11,6 +11,8 @@
 | [0001](0001-persistencia-em-memoria-no-mvp.md) | Persistência em memória no MVP | aceito |
 | [0002](0002-erros-como-texto-plano.md) | Erros como texto plano | substituído por ADR-0003 |
 | [0003](0003-contrato-de-erro-json-padronizado.md) | Contrato de erro JSON padronizado | aceito |
+| [0004](0004-isolamento-mecanico-de-agentes-por-lock-e-worktree.md) | Isolamento mecânico de agentes (lock + worktree) | aceito |
+| [0005](0005-protecao-de-artefatos-de-features-mescladas.md) | Proteção de artefatos de features mescladas | aceito |
 
 ## Quando criar um ADR (calibragem — não burocratize)
 

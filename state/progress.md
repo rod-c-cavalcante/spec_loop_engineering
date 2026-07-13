@@ -9,4 +9,5 @@
 ## Iteração <data ISO> — <id da história>
 - Fez: ...
 - Descobriu: ... (armadilhas, convenções implícitas, decisões)
-- Gap registrado: (se houver) Spec→Impl ou Intent→Spec + 1 linha
+- Gap registrado: (se houver) tag padronizada gap:intent-spec, gap:spec-impl
+  ou gap:spec-oraculo ENTRE COLCHETES + 1 linha (o painel conta as tags)
