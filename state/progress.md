@@ -109,3 +109,13 @@
   `100755` — verificado plantando a regressão exata (derrubando o bit de
   `ralph.sh`) antes de contar como pronto. 3 falhas idênticas é bem além do
   "2x" que a constitution §12 exige para promover a mecanismo.
+
+## Iteração 2026-09-13 — PR de teste para validar L2 e painel em CI real
+- Fez: abriu PR de teste (branch test/verificar-l2-ci-real) só para disparar
+  os jobs "Gates L2" e "Painel de métricas no PR", que nunca tinham rodado
+  de verdade (só disparam em pull_request; este repo nunca teve PR até aqui).
+- Descoberta esperada: L2 deve reprovar em smoke(rebuild+HTTP real) — não há
+  produto implementado ainda (specs/001 é só exemplo didático, nunca rodou o
+  loop; sem docker-compose.yml, sem servidor). Simulado localmente antes
+  desta PR com o mesmo resultado. Não é bug de CI; é o gate corretamente
+  recusando provar algo que não existe.
