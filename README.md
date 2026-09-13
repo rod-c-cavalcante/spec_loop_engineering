@@ -1,4 +1,4 @@
-# SpecLoop v3.0 — SDD + Loop Engineering para Claude Code
+# SpecLoop v4.0 — SDD + Loop Engineering para Claude Code
 
 > **A spec é o árbitro. O loop é o motor. Os gates são a prova.
 > Você é o engenheiro que projeta os três.**
@@ -22,12 +22,13 @@ prontos para operar em escala).
 4. [Trilha de aprendizado (estudantes)](#trilha-de-aprendizado)
 5. [O loop em detalhe](#os-5-blocos-do-loop)
 6. [ADRs — a memória do "porquê"](#adrs--a-memória-do-porquê-docsadr)
-7. [Painel de métricas (4 famílias)](#painel-de-métricas)
-8. [DevOps · FinOps · LGPD](#devops--finops--lgpd)
-9. [Segurança e escala](#regras-de-segurança)
-10. [FAQ](#faq)
-11. [Glossário](#glossário)
-12. [Referências (ABNT)](#referências-bibliográficas-abnt-nbr-6023)
+7. [Novidades v4.0](#novidades-v40)
+8. [Painel de métricas (4 famílias)](#painel-de-métricas)
+9. [DevOps · FinOps · LGPD](#devops--finops--lgpd)
+10. [Segurança e escala](#regras-de-segurança)
+11. [FAQ](#faq)
+12. [Glossário](#glossário)
+13. [Referências (ABNT)](#referências-bibliográficas-abnt-nbr-6023)
 
 ---
 
@@ -42,8 +43,10 @@ agêntica) e as travas (**limites** de iteração, custo e risco). Um loop
 cada iteração e memória em git + arquivos — e você revisa PRs, não conversas.
 
 O que diferencia este template: **cada mecanismo foi financiado por uma falha
-real de produção** (retrospectiva de 8 features — `ARCHITECTURE.md §7`).
-Nada aqui é especulação; é cicatriz transformada em código.
+real de produção** — duas retrospectivas, 14 features no total
+(`ARCHITECTURE.md §7`). Nada aqui é especulação; é cicatriz transformada em
+código. A v4.0 acrescenta mutation testing, veredito único e um Verifier que
+deixou de ser pulável em histórias de risco — ver [Novidades v4.0](#novidades-v40).
 
 ## Arquitetura em 3 camadas
 
@@ -60,6 +63,8 @@ Nada aqui é especulação; é cicatriz transformada em código.
 │  loop/preflight.sh  ← lock, tree limpo, consistência        │
 │  loop/ralph.sh      ← o loop: risk, checkpoint, breaker     │
 │  loop/gates.sh      ← prova estratificada L0/L1/L2          │
+│  loop/verificar.py  ← veredito único, anula se árvore mudar │
+│  loop/mutar.py      ← mutation testing pontual (risk:high)  │
 │  loop/smoke.sh      ← rebuild limpo + HTTP real (L2)        │
 │  loop/PROMPT_*.md   ← almas dos agentes Builder e Verifier  │
 ├─────────────────────────────────────────────────────────────┤
@@ -79,7 +84,7 @@ Detalhamento completo, decisões e trade-offs: **`ARCHITECTURE.md`**.
 # 0. Pré-requisitos: Claude Code autenticado, git, jq, python3, bash
 # 1. Clonar e inicializar
 cp -r specloop meu-projeto && cd meu-projeto
-git init && git add -A && git commit -m "chore: bootstrap SpecLoop v3"
+git init && git add -A && git commit -m "chore: bootstrap SpecLoop v4"
 git config core.hooksPath githooks          # gates L0 em todo commit humano
 
 # 2. (Recomendado) Spec Kit por cima — mesmas convenções, zero conflito
@@ -149,6 +154,42 @@ Caminho de promoção da memória: `progress.md` → destila → **ADR** (julgam
 ou **código** (lição determinística, §12) → promove → **constituição** (regra
 universal). Expurgo é destilação, não deleção.
 
+## Novidades v4.0
+
+Uma segunda rodada de retrospectivas de produção (mais 6 features, mesmo
+padrão de arquitetura) motivou `specs/002-fortalecimento-v4/` — comparação
+achado a achado contra este template, mecanismo por mecanismo, com auditoria
+independente (`/verify`) rodada sobre o diff antes do commit. Mesma regra da
+v2: mecanismo, não recomendação; e na dúvida entre documentar e automatizar,
+automatize (`ARCHITECTURE.md §7`).
+
+| Melhoria | O que faz | Por quê (achado da retrospectiva) |
+|---|---|---|
+| `loop/mutar.py` | Mutation testing pontual — nega condição, troca operador relacional, remove `await`; restauração garantida por `try/finally`, **nunca** `git checkout` | 9 mutações em produção externa revelaram 3x suíte verde que não provava nada; um `git checkout` para desfazer mutação já tinha apagado trabalho não commitado numa retro anterior |
+| `loop/verificar.py` | Ponto único de veredito: checa cobertura do `e2eScope` **antes** de gastar o gate; anula o veredito se a árvore mudar durante a execução | "Gate impossível de fechar" — um artefato de teste mudando a árvore em pleno L2 custou ~40min de corrida perdida num período real de produção |
+| Fix em `ralph.sh` | Exit code do gate nunca mais passa por um pipe (saída vai para arquivo antes de qualquer `tail`/`md5sum`) | Leitura de veredito por cano perdeu o exit code real — o gate tinha reprovado e a leitura dizia zero |
+| 4 lints novos em `gates.sh` | `orm-migration-lint`, `infra-assertion-lint`, `crlf-lint` (cobre `.sh` e `.py`), `pendencias-lint` — cada um verificado plantando o defeito real antes de contar como pronto | Divergência ORM↔banco 2x; teste de infra medindo o YAML escrito em vez da saída de `docker compose config`; escrita de arquivo por script convertendo quebra de linha em byte literal — passou verde na 4ª vez |
+| Verifier obrigatório em `risk:high` | `ralph.sh` bloqueia (exit 6) história de risco marcada pronta sem veredito `APROVADO` registrado em `state/verdicts.csv` — não pulável por `NO_CHECKPOINT` | Um período inteiro sem auditoria independente teve 4 de 5 falsos-verdes vindos de teste que o próprio autor escreveu e validou |
+| `prd-lint` de ordenação por risco | `preflight.sh` bloqueia feature com >10 histórias pendentes sem `risk:high` nos primeiros 30% da ordem do `prd.json` | Feature de 18 histórias adiou o checkpoint humano até perto do fim |
+| `scripts/setup-branch-protection.sh` | Branch protection **como código** (`gh` CLI, com `--dry-run`) exigindo `gates-l0` + `gates-l2` antes do merge | PR mesclado 90s depois de aberto, com o L2 ainda rodando — a regra manual só sustentou quando seguida à risca |
+| Rebuild forçado por infra | `smoke.sh` ignora `SKIP_REBUILD` quando o diff toca `Dockerfile*`/`infra/**` | `--force-recreate` não reconstrói imagem; 3 rodadas de teste testaram uma imagem velha sem avisar |
+
+**Pendente de decisão humana** — agentes propõem, nunca aceitam: os ADRs
+`docs/adr/0006-0008` (status `proposto`) e o diff de constituição em
+`specs/002-fortalecimento-v4/proposta-constituicao.md`. Nada disso foi
+aplicado automaticamente.
+
+A própria auditoria (`/verify`) desta rodada é o melhor exemplo de por que o
+Verifier existe: encontrou 2 defeitos reais antes do commit — uma mutação
+que produzia código sintaticamente inválido sem que nenhum teste percebesse
+(o teste só checava substring, não sintaxe — gap Spec→Oráculo) e um
+`git grep` que não enxergava arquivo de teste ainda não commitado (gap
+Spec→Implementação). Os dois ganharam teste de regressão antes do push —
+ver `state/verdicts.csv` e `state/progress.md`.
+
+Detalhes completos: `ARCHITECTURE.md` (seção "Candidatos v4.0") e
+`specs/002-fortalecimento-v4/{spec,plan,tasks}.md`.
+
 ## Painel de métricas
 
 `python3 loop/metrics_report.py` (terminal) · `--md` (PR) · `--snapshot`
@@ -205,7 +246,10 @@ configurável; os prompts são markdown puro.
 preflight bloqueou (leia a mensagem — ela cita o incidente que a justifica).
 
 **gates.sh verde basta para dar merge?** Não. S-RELEASE (L2 + smoke) verde +
-Verifier APROVADO + revisão humana. As 4 provas estão no template de PR.
+Verifier APROVADO + revisão humana. As 4 provas estão no template de PR. Em
+histórias `risk:high`, o Verifier APROVADO deixou de ser recomendação na
+v4.0: `ralph.sh` bloqueia (exit 6) sem veredito registrado em
+`state/verdicts.csv` — ver [Novidades v4.0](#novidades-v40).
 
 **Specs dão trabalho. Vale a pena?** FPSR responde com números: spec ruim =
 FPSR baixo = retrabalho pago em tokens e tempo. A spec é a otimização FinOps
