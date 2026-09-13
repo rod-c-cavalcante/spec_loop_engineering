@@ -14,7 +14,7 @@ jobs:
     name: Gates L0 (rápido — todo push)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: npm }
         if: hashFiles('package.json') != ''
@@ -33,7 +33,7 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: npm }
         if: hashFiles('package.json') != ''
@@ -49,7 +49,7 @@ jobs:
     permissions:
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with: { fetch-depth: 0 }   # histórico completo p/ DORA (lead time)
       - name: Gerar painel + snapshot acumulado
         run: |
