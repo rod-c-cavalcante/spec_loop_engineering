@@ -87,3 +87,25 @@
   não porque algum gate meu a pegou primeiro. Vale registrar: "achado
   plantado antes de contar como pronto" também deveria valer para os
   PRÓPRIOS arquivos da história, não só para o caso de exemplo sintético.
+
+## Iteração 2026-09-13 — CI 100% quebrada desde o primeiro commit (achado externo)
+- Fez: investigou https://github.com/rod-c-cavalcante/spec_loop_engineering/actions/runs/34759206761
+  (reportado pelo usuário) e as duas corridas anteriores — as 3 corridas de
+  CI que já existiram falharam de forma idêntica: `./loop/gates.sh: Permission
+  denied` (exit 126) no primeiro passo do job Gates L0.
+- Descobriu: [gap:spec-impl] TODOS os `*.sh` do repo (gates.sh, ralph.sh,
+  preflight.sh, smoke.sh, setup-branch-protection.sh, githooks/pre-commit)
+  estavam `100644` no índice do git — nunca tiveram o bit de execução
+  registrado, desde o commit inicial do projeto (antes desta sessão).
+  `docs/DEVOPS.md` promete "CI roda os MESMOS gates" (zero drift); na
+  prática nunca rodou nenhum, porque `ci.yml` chama `./loop/gates.sh`
+  (exige +x), e localmente eu sempre rodei via `bash ./loop/gates.sh`
+  (explicitando o interpretador, que não exige +x) — exatamente o tipo de
+  divergência "passou na minha máquina, quebrou no CI" que a própria
+  constituição/README descrevem como razão de ser do L2. `core.filemode=false`
+  neste Windows fazia qualquer `chmod` local nunca chegar no índice do git.
+- Corrigido: `git update-index --chmod=+x` nos 8 scripts; novo
+  `exec-bit-lint` em `gates.sh` reprova qualquer `*.sh` tracked sem o bit
+  `100755` — verificado plantando a regressão exata (derrubando o bit de
+  `ralph.sh`) antes de contar como pronto. 3 falhas idênticas é bem além do
+  "2x" que a constitution §12 exige para promover a mecanismo.

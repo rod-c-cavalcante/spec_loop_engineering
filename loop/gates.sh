@@ -66,6 +66,22 @@ if [[ -d loop/tests ]]; then
   [[ -n "$PYTEST_CMD" ]] && run_gate "loop-tests" $PYTEST_CMD -q loop/tests
 fi
 
+# exec-bit-lint — script .sh sem bit de execução no git roda local via
+# "bash script.sh" mas falha como "./script.sh" no CI (exit 126: Permission
+# denied). Achado ao vivo (2026-09-13): TODOS os .sh deste repo, incluindo o
+# próprio gates.sh chamado pelo ci.yml, estavam 100644 desde o primeiro
+# commit — as 3 corridas de CI que existiram falharam 3 de 3 pelo mesmo
+# motivo, invisível localmente porque core.filemode=false no Windows nunca
+# propaga chmod para o índice do git. constitution §12: gotcha reproduzível
+# 2x vira mecanismo — este falhou 3x.
+NON_EXEC_SH=$(git ls-files -s -- '*.sh' 2>/dev/null | awk '$1 != "100755" {print $4}')
+if [[ -n "$NON_EXEC_SH" ]]; then
+  echo "  ✖ exec-bit-lint: script(s) .sh sem bit de execução no git:"
+  echo "$NON_EXEC_SH" | sed 's/^/      /'
+  echo "    fix: git update-index --chmod=+x <arquivo>"
+  FAILED=1
+fi
+
 # ── Gates universais ─────────────────────────────────────────────────────
 if git grep -nE "(api[_-]?key|secret|password)\s*=\s*['\"][A-Za-z0-9]{16,}" -- ':!loop/gates.sh' >/dev/null 2>&1; then
   echo "  ✖ possível segredo hardcoded (constitution §6)"; FAILED=1
