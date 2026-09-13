@@ -10,6 +10,7 @@
 #   ALLOW_DIRTY=1        pula checagem de working tree limpo
 #   OVERRIDE_MERGED=1    permite escrever em specs/ de feature já mesclada
 #   PRD_LINT_ACK=1       reconhece warnings de histórias "gordas"
+#   RISK_ORDER_ACK=1     reconhece feature grande sem risk:high cedo (RF-12)
 #   CHECK_PORTS="5173 8000"  portas do host a checar (vazio = pula)
 # =============================================================================
 set -euo pipefail
@@ -87,6 +88,30 @@ if [[ "${FAT:-0}" -gt 0 && -z "${PRD_LINT_ACK:-}" ]]; then
   echo "  ⚠ prd-lint: $FAT história(s) misturando backend E frontend no mesmo acceptance."
   echo "    Fatia fina (1 endpoint OU 1 página) falha menos e corrige mais barato."
   echo "    Se for intencional, siga com PRD_LINT_ACK=1."
+fi
+
+# 7) PRD-LINT (ordenação por risco) — feature de 18 histórias adiou o
+#    checkpoint humano (RETROSPECTIVA.md §3.4, ação 5). >10 histórias
+#    pendentes: risk:high precisa estar entre os primeiros 30% (arredondado
+#    p/ cima) da ordem do prd.json, senão o checkpoint chega tarde demais.
+PENDING_COUNT=$(jq -r '[.userStories[] | select(.passes == false) | select(.id != "S-RELEASE")] | length' "$PRD" 2>/dev/null || echo 0)
+if [[ "${PENDING_COUNT:-0}" -gt 10 ]]; then
+  THRESHOLD=$(( (PENDING_COUNT * 3 + 9) / 10 ))
+  EARLY_HIGH=$(jq -r --argjson n "$THRESHOLD" \
+    '[.userStories[] | select(.passes == false) | select(.id != "S-RELEASE")][0:$n] | map(select(.risk == "high")) | length' \
+    "$PRD" 2>/dev/null || echo 0)
+  if [[ "${EARLY_HIGH:-0}" -eq 0 ]]; then
+    if [[ -z "${RISK_ORDER_ACK:-}" ]]; then
+      echo "✖ preflight: prd-lint(risco): $PENDING_COUNT história(s) pendente(s), nenhuma risk:high"
+      echo "  nas primeiras $THRESHOLD (30%). Checkpoint humano cedo evita repetir a feature de"
+      echo "  18 histórias da retro (ação 5) — reordene o prd.json ou divida a feature."
+      echo "  (override consciente: RISK_ORDER_ACK=1)"
+      FAIL=1
+    else
+      echo "  ⚠ prd-lint(risco): reconhecido via RISK_ORDER_ACK=1 — $PENDING_COUNT história(s)"
+      echo "    pendente(s), nenhuma risk:high nas primeiras $THRESHOLD."
+    fi
+  fi
 fi
 
 if [[ $FAIL -ne 0 ]]; then

@@ -1,0 +1,142 @@
+{
+  "feature": "002-fortalecimento-v4",
+  "specPath": "specs/002-fortalecimento-v4/spec.md",
+  "planPath": "specs/002-fortalecimento-v4/plan.md",
+  "branchName": "main",
+  "_nota": "Não é loop/prd.json ativo (feature 001 continua sendo a corrente). Este backlog documenta o que foi executado interativamente nesta sessão (2026-09-13), fora do loop/ralph.sh automatizado. Aponte .specify/feature.json e loop/prd.json para este arquivo só se decidir rodar o loop nesta feature depois.",
+  "userStories": [
+    {
+      "id": "T-001",
+      "title": "Fix RF-05: exit code do gate nunca passa por pipe em ralph.sh",
+      "acceptance": "gates.sh output gravado em arquivo antes de qualquer pipe; GATES_RC lido direto do comando sem pipe",
+      "dependsOn": [],
+      "passes": true,
+      "risk": "normal"
+    },
+    {
+      "id": "T-002",
+      "title": "loop/verificar.py — ponto único de veredito",
+      "acceptance": "RF-03 (escopo checado antes do gate) e RF-04 (árvore mutada anula veredito) implementados e cobertos por 10 testes pytest",
+      "dependsOn": [],
+      "passes": true,
+      "risk": "normal",
+      "e2eScope": "@verificar"
+    },
+    {
+      "id": "T-003",
+      "title": "loop/mutar.py — operador de negação + restauração segura",
+      "acceptance": "RF-01 (restaura sob SIGTERM/timeout, nunca git checkout) e RF-02 (mutação sobrevivente reportada) implementados",
+      "dependsOn": [],
+      "passes": true,
+      "risk": "normal",
+      "e2eScope": "@mutar"
+    },
+    {
+      "id": "T-004",
+      "title": "loop/mutar.py — operadores relacional e await",
+      "acceptance": "3 operadores (negacao, relacional, await) cobertos por 12 testes pytest",
+      "dependsOn": ["T-003"],
+      "passes": true,
+      "risk": "normal",
+      "e2eScope": "@mutar"
+    },
+    {
+      "id": "T-005",
+      "title": "gates.sh: orm-migration-lint (RF-06)",
+      "acceptance": "reprova migração sem modelo ORM no mesmo diff — verificado plantando o defeito real e confirmando falha, depois removendo",
+      "dependsOn": [],
+      "passes": true,
+      "risk": "normal"
+    },
+    {
+      "id": "T-006",
+      "title": "gates.sh: infra-assertion-lint (RF-07)",
+      "acceptance": "reprova teste de infra que mede o YAML bruto em vez de 'docker compose config' — verificado plantando o defeito real (exigiu fix de --untracked em git grep)",
+      "dependsOn": [],
+      "passes": true,
+      "risk": "normal"
+    },
+    {
+      "id": "T-007",
+      "title": "gates.sh: crlf-lint (RF-08)",
+      "acceptance": "reprova script .sh com CRLF — verificado plantando o defeito real (exigiu fix: grep -U, porque MSYS/Git Bash strippa \\r em modo texto antes do grep ver o byte)",
+      "dependsOn": [],
+      "passes": true,
+      "risk": "normal"
+    },
+    {
+      "id": "T-008",
+      "title": "gates.sh: pendencias-lint (RF-13)",
+      "acceptance": "reprova spec ativa sem '## Pendências conhecidas' — verificado contra specs/001 real (motivou adicionar a seção lá também)",
+      "dependsOn": [],
+      "passes": true,
+      "risk": "normal"
+    },
+    {
+      "id": "T-009",
+      "title": "smoke.sh: rebuild forçado por Dockerfile/infra (RF-09)",
+      "acceptance": "SKIP_REBUILD ignorado quando diff toca Dockerfile*/infra/**",
+      "dependsOn": [],
+      "passes": true,
+      "risk": "normal"
+    },
+    {
+      "id": "T-010",
+      "title": "Regra de jornada visível (RF-10)",
+      "acceptance": "documentada em PROMPT_VERIFY.md (checklist) e constitution proposta (regra 15); sem gate determinístico nesta v4 (depende de framework de UI não fixado pelo template)",
+      "dependsOn": [],
+      "passes": true,
+      "risk": "normal"
+    },
+    {
+      "id": "T-011",
+      "title": "preflight.sh: prd-lint de ordenação por risco (RF-12)",
+      "acceptance": "feature >10 histórias sem risk:high nos primeiros 30% bloqueia (override RISK_ORDER_ACK=1) — validado com prd.json sintético via jq",
+      "dependsOn": [],
+      "passes": true,
+      "risk": "normal"
+    },
+    {
+      "id": "T-012",
+      "title": "PROMPT_VERIFY.md: checklist generalizado (RF-14)",
+      "acceptance": "oráculo emprestado generalizado além de mocks + exigência de evidência de vermelho + checagem de jornada visível",
+      "dependsOn": [],
+      "passes": true,
+      "risk": "normal"
+    },
+    {
+      "id": "T-013",
+      "title": "Verifier obrigatório em risk:high (ralph.sh)",
+      "acceptance": "história risk:high com passes:true e gates verdes SEM veredito APROVADO em state/verdicts.csv bloqueia com exit 6, não pulável por NO_CHECKPOINT",
+      "dependsOn": ["T-002"],
+      "passes": true,
+      "risk": "high",
+      "_nota_risco": "Muda o critério de saída do loop (comportamento de ralph.sh) — checkpoint humano recomendado antes de confiar em produção; nenhum Verifier independente auditou esta mudança nesta sessão (ver progress.md)."
+    },
+    {
+      "id": "T-014",
+      "title": "scripts/setup-branch-protection.sh (RF-11)",
+      "acceptance": "--dry-run implementado; execução real não testável neste ambiente (sem gh CLI/remote GitHub configurado)",
+      "dependsOn": [],
+      "passes": true,
+      "risk": "normal"
+    },
+    {
+      "id": "T-015",
+      "title": "ADRs propostos + proposta de constituição + índices atualizados",
+      "acceptance": "ADR-0006/0007/0008 (status proposto), proposta-constituicao.md, docs/adr/README.md e ARCHITECTURE.md §7 atualizados",
+      "dependsOn": ["T-001", "T-002", "T-003", "T-004", "T-005", "T-006", "T-007", "T-008", "T-009", "T-010", "T-011", "T-012", "T-013", "T-014"],
+      "passes": true,
+      "risk": "normal"
+    },
+    {
+      "id": "S-RELEASE",
+      "title": "Verificação de release desta feature de tooling",
+      "acceptance": "./loop/gates.sh --level 0 verde (inclui loop-tests: 22/22 pytest) sobre o loop/ alterado; L2 completo (E2E+smoke) NÃO se aplica — este repo não tem produto rodando (specs/001 nunca foi implementada, ver suas Pendências conhecidas), então smoke.sh não tem API real para verificar",
+      "dependsOn": ["T-001", "T-002", "T-003", "T-004", "T-005", "T-006", "T-007", "T-008", "T-009", "T-010", "T-011", "T-012", "T-013", "T-014", "T-015"],
+      "passes": true,
+      "risk": "high",
+      "_nota_risco": "Marcada high por ser a história síntese; a limitação de L2 acima é intencional e documentada, não uma falha escondida."
+    }
+  ]
+}

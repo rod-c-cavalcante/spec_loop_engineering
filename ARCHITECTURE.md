@@ -203,6 +203,32 @@ oráculo (Verifier). Classifique bugs de produção também nesta categoria.
 Princípio-mestra da v2: **tudo que era mecanismo funcionou; tudo que era
 recomendação falhou.** Na dúvida entre documentar e automatizar, automatize.
 
+### Candidatos v4.0 — segunda rodada de retrospectiva (código mesclado, decisão pendente)
+
+Duas retrospectivas novas (2026-09-13), de um projeto com a mesma
+arquitetura cobrindo mais 6 features, motivaram `specs/002-fortalecimento-v4`.
+O código dos mecanismos abaixo já está no `loop/`; o que fica pendente de
+decisão humana é a promoção a regra de constituição (ver
+`specs/002-fortalecimento-v4/proposta-constituicao.md`) e o aceite dos ADRs
+0006-0008 (hoje `proposto`, nunca `aceito` por um agente):
+
+| Mecanismo v4 (candidato) | Falha que o financiou |
+|---|---|
+| `loop/mutar.py` — mutation testing pontual com restauração segura | 9 mutações em produção externa, 3 revelaram suíte verde que não provava nada — inclusive proteção contra fixação de sessão |
+| `loop/verificar.py` — veredito único, anula se a árvore mudar durante o gate | "Gate impossível de fechar": artefato de teste versionado mudava a árvore em pleno L2, custando ~40min por corrida perdida |
+| Fix de `ralph.sh`: exit code do gate nunca mais passa por pipe | Leitura de veredito por cano perdeu o exit code real — o gate havia reprovado e a leitura dizia zero |
+| `orm-migration-lint`, `infra-assertion-lint`, `crlf-lint` (gates.sh) | Divergência ORM↔banco 2x; teste de infra medindo o YAML escrito em vez da saída do `docker compose config`; escrita de script convertendo quebra de linha em byte literal — a 4ª vez passou verde |
+| Verifier obrigatório em risk:high (`ralph.sh`, ADR-0007) | Período inteiro sem auditoria independente: 4 de 5 falsos-verdes eram testes que o próprio autor escreveu e validou |
+| `prd-lint` de ordenação por risco (preflight.sh) | Feature de 18 histórias adiou o checkpoint humano até perto do fim |
+| `scripts/setup-branch-protection.sh` (ADR-0008) | PR mesclado 90s após aberto, com o L2 ainda rodando — regra manual só sustentou quando seguida à risca |
+
+O padrão se repete uma camada acima: falso-verde não é mais só "teste que
+não prova o código" (v2) — é também "gate que não prova a si mesmo": teste
+que não pode falhar, gate que mede o insumo em vez da saída, gate que não
+roda mas diz "ok", gate que mascara falha como ausência. A defesa contra
+essa classe é a mesma de sempre — visto pegando o caso que o motivou antes
+de contar como concluído (ver critério de pronto de `specs/002-fortalecimento-v4`).
+
 ## 8. Painel de métricas, DevOps, FinOps e LGPD (v3.0)
 
 A Camada 3 ganhou telemetria de decisão: `loop/metrics_report.py` consolida

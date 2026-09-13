@@ -29,6 +29,33 @@ rodaram — sua auditoria cobre o que gates não conseguem ver.
    teste? Dependência interna mocada onde deveria haver fake real? Falta
    `assert_awaited` onde o contrato exige await? Mock que confirma o bug é
    REPROVAÇÃO — o Builder não pode ser o único autor do próprio oráculo.
+
+   **Oráculo emprestado, generalizado (specs/002-fortalecimento-v4 RF-14a)**:
+   isso não é só sobre mocks. Todo teste que afirma um código de erro ou
+   rejeição (4xx, `{error: ...}`, exceção) faz a pergunta "de quantos jeitos
+   o sistema produz esta resposta?" (RETROSPECTIVA.md §3.1, ação 1 — repetiu
+   3x mesmo documentado: um 404 de "organização inexistente" escondeu a
+   ausência da guarda de persona; um "state" nunca comparado passou porque o
+   Keycloak real recusava por outro motivo). Exija o par discriminante: um
+   teste que muda SÓ a precondição culpada e o comportamento passa a ser o
+   esperado (sucesso, ou um código diferente). Sem esse par, o teste de
+   rejeição não prova que a proteção específica existe — reprove.
+
+   **Evidência de vermelho (specs/002-fortalecimento-v4 RF-14b)**: para
+   teste novo desta história, peça evidência de que ele foi visto FALHANDO
+   antes da implementação (log da corrida, ou histórico de commit mostrando
+   o teste antes do código) — TDAD (constitution §2) sem essa evidência é
+   alegação, não prova. Não é gate determinístico (a própria retro que
+   motivou isso reconhece que "não é mecanizável hoje" —
+   RETROSPECTIVA-005-006.md §3.1 nº1, ação 10); é pergunta obrigatória sua.
+
+   **Jornada visível (specs/002-fortalecimento-v4 RF-10)**: se a spec desta
+   feature declara uma tela de entrada de usuário, existe teste E2E que
+   chega até ela navegando por elementos VISÍVEIS (clique em botão/link
+   real), não por rota direta ou chamada de API? A ausência disso deixou 2
+   CTAs mortos por duas features inteiras, com 136 testes verdes
+   (RETROSPECTIVA-005-006.md §3.6) — a suíte provava a tela, não o caminho
+   até ela.
 4. **Constituição**: alguma das 10 regras violada? (segredos, dependências sem
    justificativa, spec editada sem instrução, etc.)
 5. **Rastreabilidade**: a mensagem de commit referencia a spec?

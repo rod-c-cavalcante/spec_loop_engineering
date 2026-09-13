@@ -21,8 +21,13 @@ que o loop roda localmente é EXATAMENTE o que a CI roda no PR
 - O painel de métricas comenta no PR automaticamente (4 famílias + snapshot
   acumulado em `state/metrics_history.csv`) — a decisão de merge vê custo,
   qualidade e DORA no mesmo lugar.
-- Branch protection recomendada: exigir gates-l0 + gates-l2 verdes; proibir
-  push direto em main; o merge é sempre decisão humana (constituição §10).
+- Branch protection **como código**, não só recomendação: `./scripts/setup-branch-protection.sh`
+  (specs/002-fortalecimento-v4, RF-11) exige gates-l0 + gates-l2 verdes antes
+  de permitir merge em main — rode 1x por repositório (`--dry-run` mostra o
+  que faria sem tocar o remoto). Proíbe push direto em main; o merge em si é
+  sempre decisão humana (constituição §10). Origem: um PR foi mesclado 90s
+  depois de aberto, com o L2 ainda rodando (RETROSPECTIVA.md §3.3) — texto
+  não impede isso; branch protection configurada impede.
 
 **main → produção (CD)**
 - Deploy automatizado a partir de main (deploy = merge → Deployment Frequency

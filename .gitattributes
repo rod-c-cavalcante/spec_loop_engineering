@@ -1,0 +1,10 @@
+# Scripts shell exigem LF sempre — CRLF quebra o shebang em bash
+# (RETROSPECTIVA-005-006.md §3.3: "escrevi o arquivo com fim de linha do
+# Windows: o shebang quebrou e a API parou de subir"; specs/002-fortalecimento-v4
+# RF-08, crlf-lint em gates.sh). Sem isto, core.autocrlf=true (padrão
+# recomendado do Git para Windows) converteria *.sh para CRLF no checkout e
+# o crlf-lint reprovaria TODO script shell em qualquer contribuidor Windows
+# — falso-positivo generalizado, descoberto ao implementar o próprio lint
+# nesta sessão.
+*.sh text eol=lf
+*.py text eol=lf

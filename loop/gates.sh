@@ -49,6 +49,22 @@ if [[ -f pyproject.toml || -f requirements.txt ]]; then
   # Convenção: marque E2E com @pytest.mark.e2e; L0 roda só o resto. Adapte.
   command -v pytest >/dev/null && run_gate "pytest-unit" pytest -q -m "not e2e"
 fi
+# loop-tests — mutar.py/verificar.py (specs/002-fortalecimento-v4) têm testes
+# próprios em loop/tests/; roda sempre, independente de o produto da feature
+# ativa ser Python (não depende de pyproject.toml/requirements.txt na raiz,
+# que pertencem ao produto, não ao template). Resolve pytest via `python -m`
+# quando o binário não está no PATH (comum em ambiente Windows/Git Bash).
+if [[ -d loop/tests ]]; then
+  PYTEST_CMD=""
+  if command -v pytest >/dev/null 2>&1; then
+    PYTEST_CMD="pytest"
+  elif command -v python3 >/dev/null 2>&1 && python3 -m pytest --version >/dev/null 2>&1; then
+    PYTEST_CMD="python3 -m pytest"
+  elif command -v python >/dev/null 2>&1 && python -m pytest --version >/dev/null 2>&1; then
+    PYTEST_CMD="python -m pytest"
+  fi
+  [[ -n "$PYTEST_CMD" ]] && run_gate "loop-tests" $PYTEST_CMD -q loop/tests
+fi
 
 # ── Gates universais ─────────────────────────────────────────────────────
 if git grep -nE "(api[_-]?key|secret|password)\s*=\s*['\"][A-Za-z0-9]{16,}" -- ':!loop/gates.sh' >/dev/null 2>&1; then
@@ -72,6 +88,69 @@ if [[ -n "$SPEC_PATH" && -f "$SPEC_PATH" ]]; then
     echo "  ✖ lgpd-lint: $SPEC_PATH sem a seção '## Dados pessoais (LGPD)' (constitution §13)"
     FAILED=1
   fi
+  # pendencias-lint — o que segue sem prova precisa ficar dito, não implícito
+  # (RETROSPECTIVA-005-006.md §8 / specs/002-fortalecimento-v4 RF-13).
+  if ! grep -q "^## Pendências conhecidas" "$SPEC_PATH"; then
+    echo "  ✖ pendencias-lint: $SPEC_PATH sem a seção '## Pendências conhecidas' (specs/002-fortalecimento-v4 RF-13)"
+    FAILED=1
+  fi
+fi
+
+# ── Arquivos tocados no diff atual (uncommitted + novos) ────────────────
+# Base para orm-migration-lint e infra-assertion-lint: olhar o que MUDOU,
+# não o repositório inteiro — mesmo recorte que o Builder está prestes a
+# commitar.
+CHANGED_FILES=$( { git diff --name-only HEAD 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null; } | sort -u)
+
+# orm-migration-lint — migração sem o modelo ORM correspondente no mesmo
+# diff é exatamente a divergência ORM↔banco que se repetiu 2x na retro
+# (RETROSPECTIVA.md §3.2, ação 3): coluna/restrição só na migração, o ORM
+# "mentia" em silêncio para quem lê só o modelo.
+MIGRATION_CHANGED=$(echo "$CHANGED_FILES" | grep -E '(^|/)(migrations?|alembic/versions)/.+\.(py|sql|js|ts)$|(^|/)db/migrate/.+\.rb$' || true)
+if [[ -n "$MIGRATION_CHANGED" && -z "${ORM_LINT_ACK:-}" ]]; then
+  MODEL_CHANGED=$(echo "$CHANGED_FILES" | grep -E '(^|/)models?\.py$|(^|/)models?/.+\.py$|(^|/)schema\.prisma$|(^|/)entit(y|ies)/.+\.(py|ts)$' || true)
+  if [[ -z "$MODEL_CHANGED" ]]; then
+    echo "  ✖ orm-migration-lint: migração tocada sem modelo ORM correspondente no mesmo diff (constitution proposta, RF-06):"
+    echo "$MIGRATION_CHANGED" | sed 's/^/      /'
+    echo "    Se for intencional (ex.: migração de dado, não de schema), reconheça com ORM_LINT_ACK=1."
+    FAILED=1
+  fi
+fi
+
+# infra-assertion-lint — teste que mede o INSUMO (o YAML escrito) em vez da
+# SAÍDA da ferramenta ficou verde com bug real presente: 'ports: []' no
+# arquivo, o Compose concatena e as portas continuavam publicadas
+# (RETROSPECTIVA-005-006.md §3.1 nº2, ação 9).
+INFRA_TEST_FILES=$(git grep --untracked -lE '(docker-compose\.ya?ml|compose\.ya?ml)' -- '*test*infra*' '*infra*test*' '*test*compose*' '*compose*test*' 2>/dev/null || true)
+if [[ -n "$INFRA_TEST_FILES" ]]; then
+  for f in $INFRA_TEST_FILES; do
+    if ! grep -qE 'compose[[:space:]]+config' "$f"; then
+      echo "  ✖ infra-assertion-lint: $f parece medir o arquivo de config bruto, não a saída resolvida de 'docker compose config' (RF-07)"
+      FAILED=1
+    fi
+  done
+fi
+
+# crlf-lint — escrita de arquivo por script converteu quebra de linha em
+# byte literal 4x na retro; a 4ª vez passou verde (RETROSPECTIVA-005-006.md
+# §3.4, ação 12). Cobre *.sh (shebang quebra) E *.py — achado do Verifier
+# nesta própria sessão: um `open(p, "w").write(...)` sem `newline=""` no
+# Windows introduziu CRLF em um dos testes desta feature, sem nenhum gate
+# pegando (crlf-lint só cobria .sh na primeira versão). A armadilha não é
+# específica de shell; é de "escrita de arquivo por script", como o nome
+# do achado já diz.
+CRLF_FILES=""
+while IFS= read -r f; do
+  [[ -f "$f" ]] || continue
+  # -U: lê em modo binário — sem ela, grep no Git Bash/MSYS (Windows) abre em
+  # modo texto e o próprio SO já stripa o \r antes do grep ver o byte (o
+  # mesmo tipo de armadilha texto↔binário da retro, §3.4). No-op inofensivo
+  # em grep GNU/Linux (arquivo já chega sem tradução).
+  grep -Uq $'\r' "$f" 2>/dev/null && CRLF_FILES+="$f "
+done < <({ git ls-files '*.sh' '*.py' 2>/dev/null; git ls-files --others --exclude-standard '*.sh' '*.py' 2>/dev/null; } | sort -u)
+if [[ -n "$CRLF_FILES" ]]; then
+  echo "  ✖ crlf-lint: script(s) shell com terminador CRLF (RF-08): $CRLF_FILES"
+  FAILED=1
 fi
 # heurística de PII em log (warning, não bloqueio — revisão é do Verifier)
 if git grep -inE "(logger\.|logging\.|console\.log|print\().*(cpf|rg\b|senha|password|e-?mail|telefone)" -- 'src/*' 'apps/*' 2>/dev/null | head -3 | grep -q .; then

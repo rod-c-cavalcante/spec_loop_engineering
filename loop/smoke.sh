@@ -20,6 +20,18 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 BASE_URL="${BASE_URL:-http://localhost:8000}"
 
+# RF-09 (specs/002-fortalecimento-v4): `--force-recreate` NÃO reconstrói
+# imagem — 3 rodadas de teste testaram um entrypoint.sh velho sem avisar
+# (RETROSPECTIVA-005-006.md §3.3, ação 13). Se o diff toca Dockerfile/infra,
+# SKIP_REBUILD é ignorado: a mudança exige rebuild real, não é opcional.
+INFRA_TOUCHED=$( { git diff --name-only HEAD 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null; } \
+  | grep -E '(^|/)Dockerfile([.-].*)?$|(^|/)infra/' || true)
+if [[ -n "$INFRA_TOUCHED" && -n "${SKIP_REBUILD:-}" ]]; then
+  echo "⚠ smoke: SKIP_REBUILD ignorado — diff toca Dockerfile/infra (RF-09):"
+  echo "$INFRA_TOUCHED" | sed 's/^/    /'
+  unset SKIP_REBUILD
+fi
+
 # ── 1) Rebuild limpo — o único jeito de pegar env ausente e estado fantasma ──
 if [[ -z "${SKIP_REBUILD:-}" ]] && [[ -f docker-compose.yml || -f compose.yml ]]; then
   echo "▶ smoke: rebuild limpo (down -v && up --build)"

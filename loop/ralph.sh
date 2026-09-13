@@ -85,21 +85,28 @@ for (( i=1; i<=MAX_ITERATIONS; i++ )); do
   [[ $AGENT_RC -eq 124 ]] && echo "⚠ Iteração excedeu ${ITERATION_TIMEOUT}s (timeout)."
 
   # 2) GATES — estratificados: a prova no nível certo
+  # A saída vai para arquivo ANTES de qualquer pipe (RF-05, specs/002):
+  # ler exit code do fim de um cano perde o código real do gates.sh — é o
+  # anti-padrão nomeado em RETROSPECTIVA-005-006.md §3.2. GATES_RC abaixo
+  # vem direto de "$?" sobre o comando executado sem pipe; a transformação
+  # (tail/md5sum) só acontece DEPOIS, lendo do arquivo gravado.
+  GATES_OUT="state/.last_gates_output"
   set +e
   if [[ -n "$SCOPE" ]]; then
-    ./loop/gates.sh --level "$LEVEL" --scope "$SCOPE"
+    ./loop/gates.sh --level "$LEVEL" --scope "$SCOPE" > "$GATES_OUT" 2>&1
   else
-    ./loop/gates.sh --level "$LEVEL"
+    ./loop/gates.sh --level "$LEVEL" > "$GATES_OUT" 2>&1
   fi
   GATES_RC=$?
   set -e
+  cat "$GATES_OUT"
 
   DURATION=$(( $(date +%s) - START ))
   GATES_LABEL=$([[ $GATES_RC -eq 0 ]] && echo "pass" || echo "fail")
 
   # 3) CIRCUIT BREAKER — mesma falha repetida = parar e chamar humano
   if [[ $GATES_RC -ne 0 ]]; then
-    FAILURE_SIG=$(./loop/gates.sh --level "$LEVEL" ${SCOPE:+--scope "$SCOPE"} 2>&1 | tail -3 | md5sum | cut -d' ' -f1 || true)
+    FAILURE_SIG=$(tail -3 "$GATES_OUT" | md5sum | cut -d' ' -f1)
     if [[ "$FAILURE_SIG" == "$LAST_FAILURE" ]]; then
       SAME_FAILURE_COUNT=$((SAME_FAILURE_COUNT+1))
     else
@@ -131,15 +138,36 @@ for (( i=1; i<=MAX_ITERATIONS; i++ )); do
     exit 3
   fi
 
-  # 6) CHECKPOINT DE RISCO — história high concluída para o loop p/ revisão
+  # 6) VERIFIER OBRIGATÓRIO EM RISK:HIGH (specs/002-fortalecimento-v4 T-013)
+  #    Sem auditoria independente, o mesmo agente implementa, testa e julga —
+  #    4 dos 5 falsos-verdes de um período inteiro vieram exatamente disso
+  #    (RETROSPECTIVA-005-006.md §4.3). NO_CHECKPOINT pula a PAUSA para
+  #    revisão humana; nunca pula a exigência de um veredito registrado.
   STORY_DONE=$(jq -r --arg id "$STORY" '.userStories[] | select(.id==$id) | .passes' "$PRD")
-  if [[ "$RISK" == "high" && "$STORY_DONE" == "true" && $GATES_RC -eq 0 && -z "${NO_CHECKPOINT:-}" ]]; then
-    echo ""
-    echo "⏸ CHECKPOINT: história risk=high '$STORY' concluída com gates verdes."
-    echo "  Auth/permissões/deleção concentram os bugs graves — revise ANTES de seguir:"
-    echo "    git show HEAD   ·   /verify (auditoria do Verifier)"
-    echo "  Para continuar o backlog: ./loop/ralph.sh"
-    exit 5
+  if [[ "$RISK" == "high" && "$STORY_DONE" == "true" && $GATES_RC -eq 0 ]]; then
+    VERDICTS="state/verdicts.csv"
+    LATEST_VERDICT=""
+    if [[ -f "$VERDICTS" ]]; then
+      LATEST_VERDICT=$(awk -F, -v s="$STORY" '$2==s{v=$3} END{print v}' "$VERDICTS")
+    fi
+    if [[ "$LATEST_VERDICT" != "APROVADO" ]]; then
+      echo ""
+      echo "✖ VERIFIER OBRIGATÓRIO: história risk=high '$STORY' concluída (gates verdes) mas"
+      echo "  sem veredito APROVADO em $VERDICTS (achado: ${LATEST_VERDICT:-nenhum registro})."
+      echo "  Auth/permissões/deleção concentram os bugs graves — rode a auditoria ANTES de seguir:"
+      echo "    /verify   (ou: cat loop/PROMPT_VERIFY.md | claude -p)"
+      echo "  Isto NÃO é pulável por NO_CHECKPOINT — é o mesmo tipo de falso-verde que"
+      echo "  produziu 4 de 5 achados na retro (RETROSPECTIVA-005-006.md §4.3)."
+      exit 6
+    fi
+
+    if [[ -z "${NO_CHECKPOINT:-}" ]]; then
+      echo ""
+      echo "⏸ CHECKPOINT: história risk=high '$STORY' concluída com gates verdes e Verifier APROVADO."
+      echo "  Revise ANTES de seguir: git show HEAD"
+      echo "  Para continuar o backlog: ./loop/ralph.sh"
+      exit 5
+    fi
   fi
 
   # 7) CONDIÇÃO DUPLA DE SAÍDA — promise E gates E backlog zerado

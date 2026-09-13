@@ -55,6 +55,13 @@ THEN THE SYSTEM SHALL responder `404` com `{ "error": "not_found" }`.
 - **Minimização**: o campo `title` é livre — a UI deve orientar a não inserir
   dados pessoais; feature de contas (futura) fará a análise completa.
 
+## Pendências conhecidas
+
+- Esta feature é material didático — nunca foi executada pelo `loop/ralph.sh`.
+  Não há evidência real de que o pipeline completo (spec → prd.json → loop →
+  gates → commit) funciona ponta a ponta neste repositório; só o formato foi
+  validado por leitura.
+
 ## Critérios de pronto (definition of done)
 
 - [ ] Todos os RF acima cobertos por testes automatizados que passam

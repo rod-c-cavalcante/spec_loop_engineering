@@ -13,6 +13,9 @@
 | [0003](0003-contrato-de-erro-json-padronizado.md) | Contrato de erro JSON padronizado | aceito |
 | [0004](0004-isolamento-mecanico-de-agentes-por-lock-e-worktree.md) | Isolamento mecânico de agentes (lock + worktree) | aceito |
 | [0005](0005-protecao-de-artefatos-de-features-mescladas.md) | Proteção de artefatos de features mescladas | aceito |
+| [0006](0006-mutation-testing-obrigatorio-risk-high.md) | Mutation testing obrigatório em risk:high | proposto |
+| [0007](0007-verifier-obrigatorio-em-risk-high.md) | Veredito do Verifier obrigatório para fechar história risk:high | proposto |
+| [0008](0008-branch-protection-como-codigo.md) | Branch protection como código | proposto |
 
 ## Quando criar um ADR (calibragem — não burocratize)
 

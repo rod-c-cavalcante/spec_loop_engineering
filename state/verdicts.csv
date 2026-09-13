@@ -1,0 +1,5 @@
+timestamp,story,verdict,gap
+2026-09-13T09:55:57-03:00,T-003,REPROVADO,spec-oraculo
+2026-09-13T09:55:57-03:00,T-002,REPROVADO,spec-impl
+2026-09-13T09:57:50-03:00,T-003,APROVADO,spec-oraculo-corrigido
+2026-09-13T09:57:50-03:00,T-002,APROVADO,spec-impl-corrigido
