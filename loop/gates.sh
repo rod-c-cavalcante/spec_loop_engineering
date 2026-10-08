@@ -63,7 +63,14 @@ if [[ -d loop/tests ]]; then
   elif command -v python >/dev/null 2>&1 && python -m pytest --version >/dev/null 2>&1; then
     PYTEST_CMD="python -m pytest"
   fi
-  [[ -n "$PYTEST_CMD" ]] && run_gate "loop-tests" $PYTEST_CMD -q loop/tests
+  # Sem pytest o gate era PULADO em silêncio: a CI nunca rodou loop/tests/
+  # e reportava verde (specs/005-ci-do-template RF-03, achado no PR #2).
+  if [[ -n "$PYTEST_CMD" ]]; then
+    run_gate "loop-tests" $PYTEST_CMD -q loop/tests
+  else
+    echo "  ✖ loop-tests: loop/tests/ existe mas não há pytest — instale com: pip install pytest"
+    FAILED=1
+  fi
 fi
 
 # exec-bit-lint — script .sh sem bit de execução no git roda local via

@@ -187,6 +187,12 @@ o ciclo de revisão virou mecanismo (`specs/004-revisao-antes-do-commit/`).
 | `/verify <ref>` | Aceita o ponto fixo e recomenda sessão nova | Quem escreveu o código não é auditor independente |
 | Item "Padrões e smells" no Verifier | Doze smells de referência, cada achado com citação; é **observação não bloqueante**, exceto quando já é regra (constituição §4 e §9); duplicação só conta na 3ª ocorrência | O checklist não olhava manutenibilidade; a §9 pede três repetições antes de generalizar |
 
+**CI do próprio template** (`specs/005-ci-do-template/`): o `smoke.sh`
+declara-se não aplicável (com aviso) quando o repositório não tem produto —
+antes o L2 ficava vermelho em todo PR do template; `BASE_URL` definida ou
+`SMOKE_REQUIRED=1` o tornam obrigatório. E `gates.sh` agora **reprova** se
+`loop/tests/` existe e falta `pytest`: a CI pulava esses testes em silêncio.
+
 **Como ajustar**
 
 | Variável | Padrão | Efeito |

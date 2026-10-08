@@ -15,9 +15,23 @@
 # Uso: ./loop/smoke.sh            (chamado pelo gates.sh --level 2)
 #   SKIP_REBUILD=1  pula o docker rebuild (só roda os checks)
 #   BASE_URL=...    default http://localhost:8000
+#   SMOKE_REQUIRED=1  roda os checks mesmo em repositório sem produto
 # =============================================================================
 set -euo pipefail
 cd "$(dirname "$0")/.."
+
+# Sem produto, não há o que provar (specs/005-ci-do-template RF-01): o template
+# puro não tem compose nem manifesto, e chamar localhost:8000 assim mesmo
+# deixava o L2 vermelho em TODO PR do próprio template (PRs #1 e #2) — gate
+# sempre vermelho ensina a ignorar o gate. BASE_URL definida por quem chamou
+# ou SMOKE_REQUIRED=1 tornam o smoke obrigatório de novo (RF-02).
+if [[ -z "${BASE_URL:-}" && -z "${SMOKE_REQUIRED:-}" ]] \
+   && [[ ! -f docker-compose.yml && ! -f compose.yml && ! -f package.json \
+         && ! -f pyproject.toml && ! -f requirements.txt ]]; then
+  echo "  ⚠ smoke: N/A — repositório sem produto (sem compose, package.json,"
+  echo "    pyproject.toml ou requirements.txt). Nada a provar; use SMOKE_REQUIRED=1 para forçar."
+  exit 0
+fi
 BASE_URL="${BASE_URL:-http://localhost:8000}"
 
 # RF-09 (specs/002-fortalecimento-v4): `--force-recreate` NÃO reconstrói
