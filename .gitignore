@@ -3,4 +3,9 @@ dist/
 .env
 state/metrics.csv
 state/circuit-breaker.log
+state/loop.lock
+state/.last_*
+state/.commit_msg
+state/review.md
+loop/prd.json.tmp
 __pycache__/

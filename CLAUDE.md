@@ -46,7 +46,11 @@ Expurgo é destilação, não deleção.
 - Leia `state/progress.md` ANTES de agir — contém aprendizados das iterações
   anteriores. Não repita erros já documentados.
 - Ao concluir a história: marque `passes: true` no prd.json, acrescente 2–5
-  linhas de aprendizado em `state/progress.md`, faça o commit.
+  linhas de aprendizado em `state/progress.md` e grave a mensagem de commit
+  em `state/.commit_msg`. NÃO commite: o loop roda o Verifier e só commita se
+  ele aprovar (specs/004-revisao-antes-do-commit).
+- Se `state/review.md` existir, o Verifier reprovou a história atual: execute
+  as AÇÕES dele antes de qualquer outra coisa.
 - Se TODAS as histórias tiverem `passes: true` e `gates.sh` retornar 0,
   emita exatamente: `<promise>COMPLETE</promise>`
 - Se estiver bloqueado (dependência externa, ambiguidade na spec), emita

@@ -77,14 +77,20 @@ isso que o Builder faz com ele (TDAD: testes primeiro, implementação depois).
 │ 5. Builder roda ./loop/gates.sh                          │
 │    ├─ FALHOU → corrige e repete (dentro da iteração)     │
 │    └─ PASSOU → segue                                     │
-│ 6. Verifier (subagente) audita diff × critérios EARS     │
-│    ├─ REPROVOU → feedback → Builder corrige              │
-│    └─ APROVOU → segue                                    │
-│ 7. Marca passes=true no prd.json                         │
-│ 8. Registra aprendizado em state/progress.md             │
-│ 9. Commit atômico: "feat(x): ... refs specs/NNN/spec.md" │
-│ 10. Todas passes=true? → <promise>COMPLETE</promise>     │
+│ 6. Builder marca passes=true, registra aprendizado em    │
+│    state/progress.md e deixa a mensagem de commit em     │
+│    state/.commit_msg — NÃO commita                       │
+│ 7. ralph.sh roda os gates e, se verdes, o Verifier       │
+│    (processo novo) sobre o diff ainda não commitado      │
+│    ├─ REPROVOU → state/review.md, passes=false, sem      │
+│    │   commit → o Builder corrige na ITERAÇÃO N+1        │
+│    │   (teto MAX_REWORK; depois para e chama humano)     │
+│    └─ APROVOU → ralph.sh faz o commit atômico            │
+│        "feat(x): ... refs specs/NNN/spec.md"             │
+│ 8. Todas passes=true? → <promise>COMPLETE</promise>      │
 └──────────────────────────────────────────────────────────┘
+  (passo 7: specs/004-revisao-antes-do-commit, ADR-0009 proposto;
+   histórias risk=low commitam sem Verifier)
         │ contexto descartado; estado fica em git+arquivos
         ▼
   ITERAÇÃO N+1 (novo contexto limpo lê o estado e continua)
@@ -101,7 +107,9 @@ e `progress.md` como resumo denso, não log verboso.
 **D2 — Verificação em duas camadas: determinística + agêntica.**
 `gates.sh` (lint, typecheck, testes, build) é barato, objetivo e roda sempre.
 O Verifier (LLM-as-judge com `PROMPT_VERIFY.md`) audita o que gates não pegam:
-aderência aos critérios EARS, escopo do diff, violações da constituição.
+aderência aos critérios EARS, escopo do diff, violações da constituição e,
+como observação não bloqueante, padrões/smells (specs/003-verifier-padroes).
+O diff auditado parte de um ponto fixo (`loop/diff_base.py`), não só de `HEAD`.
 Trade-off: o Verifier adiciona latência e custo por iteração — vale quando
 qualidade importa mais que velocidade (produção). Para spikes, desligue com
 `SKIP_VERIFIER=1`.
