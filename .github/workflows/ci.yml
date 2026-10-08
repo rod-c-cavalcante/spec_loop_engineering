@@ -20,10 +20,12 @@ jobs:
         if: hashFiles('package.json') != ''
       - run: npm ci
         if: hashFiles('package-lock.json') != ''
+      # Python + pytest SEMPRE: loop/tests/ pertence ao template, nao ao produto
+      # (specs/005-ci-do-template RF-04 — sem isso o gate loop-tests nao rodava).
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
-        if: hashFiles('pyproject.toml', 'requirements.txt') != ''
-      - run: pip install -r requirements.txt ruff pytest
+      - run: pip install pytest
+      - run: pip install -r requirements.txt ruff
         if: hashFiles('requirements.txt') != ''
       - name: Gates L0
         run: ./loop/gates.sh --level 0
@@ -39,6 +41,11 @@ jobs:
         if: hashFiles('package.json') != ''
       - run: npm ci
         if: hashFiles('package-lock.json') != ''
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install pytest
+      - run: pip install -r requirements.txt ruff
+        if: hashFiles('requirements.txt') != ''
       - name: Gates L2 (E2E completo + smoke com rebuild limpo)
         run: ./loop/gates.sh --level 2
 

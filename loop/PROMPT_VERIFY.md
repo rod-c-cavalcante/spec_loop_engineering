@@ -9,12 +9,24 @@ Interativamente: `cat loop/PROMPT_VERIFY.md | claude -p` após uma iteração,
 ou como subagente do Claude Code. Os gates determinísticos (`gates.sh`) já
 rodaram — sua auditoria cobre o que gates não conseguem ver.
 
+Dentro do loop (`loop/ralph.sh`, specs/004-revisao-antes-do-commit) você roda
+ANTES do commit e o fim deste prompt traz `STORY=<id>` e `BASE=<sha>`: audite
+essa história (não "a última `passes: true`") e use `--base <BASE>` no insumo
+5. O trabalho ainda não foi commitado, então não há mensagem de commit — no
+item 5, confira `state/.commit_msg`. Se você reprovar, suas AÇÕES voltam
+sozinhas ao Builder: escreva-as para alguém sem nenhum outro contexto.
+
 ## Insumos (leia nesta ordem)
 1. `.specify/memory/constitution.md`
 2. `loop/prd.json` — identifique a última história marcada `passes: true`
 3. A spec da feature — os critérios EARS que essa história cobre
 4. `docs/adr/README.md` — índice de decisões arquiteturais
-5. `git show HEAD` — o diff do último commit
+5. `python3 loop/diff_base.py [--base <ref>]` — o diff a auditar, do ponto
+   fixo até a árvore de trabalho (padrão `HEAD~1`, equivalente ao último
+   commit). Use como base o commit anterior ao INÍCIO da história quando ela
+   tiver mais de um commit (ex.: correção após REPROVADO). Saída ≠ 0 (ref
+   inválido, nada a auditar): pare e reporte — não emita veredito. Arquivos
+   não rastreados vêm listados em stderr; leia-os direto.
 
 ## Checklist de auditoria (responda item a item, com evidência)
 1. **Aderência EARS**: cada critério coberto pela história tem teste que o
@@ -56,7 +68,7 @@ rodaram — sua auditoria cobre o que gates não conseguem ver.
    CTAs mortos por duas features inteiras, com 136 testes verdes
    (RETROSPECTIVA-005-006.md §3.6) — a suíte provava a tela, não o caminho
    até ela.
-4. **Constituição**: alguma das 10 regras violada? (segredos, dependências sem
+4. **Constituição**: alguma das 13 regras violada? (segredos, dependências sem
    justificativa, spec editada sem instrução, etc.)
 5. **Rastreabilidade**: a mensagem de commit referencia a spec?
 6. **Coerência arquitetural (ADRs)**: leia `docs/adr/README.md`. O diff
@@ -68,11 +80,30 @@ rodaram — sua auditoria cobre o que gates não conseguem ver.
    declarado na seção LGPD da spec? Logs mascarados? Deleção de dado pessoal
    marcada como risk: high no prd.json?
 
+8. **Padrões e smells (specs/003-verifier-padroes RF-06)**: o diff segue como
+   ESTE repositório escreve código (CLAUDE.md, convenções dos arquivos
+   vizinhos)? Procure, só no que o diff toca, os smells de referência:
+   Mysterious Name, Duplicated Code, Feature Envy, Data Clumps, Primitive
+   Obsession, Repeated Switches, Shotgun Surgery, Divergent Change,
+   Speculative Generality, Message Chains, Middle Man, Refused Bequest.
+   Cada achado cita a regra violada ou o trecho do diff (arquivo/linha) —
+   achado sem citação não entra.
+   - Smell é **OBSERVAÇÃO**, não reprova. Exceções, que já são regra:
+     Speculative Generality é violação da constitution §9; Shotgun Surgery /
+     Divergent Change que arrasta arquivo fora do escopo é violação da §4
+     (item 2). Nesses casos, REPROVADO.
+   - Duplicated Code só conta a partir da TERCEIRA ocorrência real
+     (constitution §9: três repetições antes de generalizar). Não peça
+     abstração para duas.
+
 ## Formato de saída (obrigatório)
+Um único veredito por auditoria; observações nunca viram veredito próprio.
 ```
 VEREDITO: APROVADO | REPROVADO
 EVIDÊNCIAS:
 - [item do checklist] → [o que encontrou, com caminho de arquivo/linha]
+OBSERVAÇÕES (item 8, não bloqueantes; omita se não houver):
+- [smell ou padrão] → [arquivo/linha e trecho]
 AÇÕES (só se REPROVADO):
 - [instrução objetiva e mínima para o Builder corrigir]
 CLASSIFICAÇÃO (só se REPROVADO):

@@ -1,4 +1,4 @@
-# SpecLoop v4.0 — SDD + Loop Engineering para Claude Code
+# SpecLoop v5.0 — SDD + Loop Engineering para Claude Code
 
 > **A spec é o árbitro. O loop é o motor. Os gates são a prova.
 > Você é o engenheiro que projeta os três.**
@@ -22,13 +22,14 @@ prontos para operar em escala).
 4. [Trilha de aprendizado (estudantes)](#trilha-de-aprendizado)
 5. [O loop em detalhe](#os-5-blocos-do-loop)
 6. [ADRs — a memória do "porquê"](#adrs--a-memória-do-porquê-docsadr)
-7. [Novidades v4.0](#novidades-v40)
-8. [Painel de métricas (4 famílias)](#painel-de-métricas)
-9. [DevOps · FinOps · LGPD](#devops--finops--lgpd)
-10. [Segurança e escala](#regras-de-segurança)
-11. [FAQ](#faq)
-12. [Glossário](#glossário)
-13. [Referências (ABNT)](#referências-bibliográficas-abnt-nbr-6023)
+7. [Novidades v5.0](#novidades-v50)
+8. [Novidades v4.0](#novidades-v40)
+9. [Painel de métricas (4 famílias)](#painel-de-métricas)
+10. [DevOps · FinOps · LGPD](#devops--finops--lgpd)
+11. [Segurança e escala](#regras-de-segurança)
+12. [FAQ](#faq)
+13. [Glossário](#glossário)
+14. [Referências (ABNT)](#referências-bibliográficas-abnt-nbr-6023)
 
 ---
 
@@ -47,6 +48,9 @@ real de produção** — duas retrospectivas, 14 features no total
 (`ARCHITECTURE.md §7`). Nada aqui é especulação; é cicatriz transformada em
 código. A v4.0 acrescenta mutation testing, veredito único e um Verifier que
 deixou de ser pulável em histórias de risco — ver [Novidades v4.0](#novidades-v40).
+A v5.0 fecha o ciclo de revisão: o Verifier roda **antes** do commit, o que ele
+reprova volta sozinho ao Builder, e quem commita é o loop — ver
+[Novidades v5.0](#novidades-v50).
 
 ## Arquitetura em 3 camadas
 
@@ -61,9 +65,10 @@ deixou de ser pulável em histórias de risco — ver [Novidades v4.0](#novidade
 ├─────────────────────────────────────────────────────────────┤
 │  CAMADA 2 · LOOP RUNTIME (padrão Ralph endurecido)          │
 │  loop/preflight.sh  ← lock, tree limpo, consistência        │
-│  loop/ralph.sh      ← o loop: risk, checkpoint, breaker     │
+│  loop/ralph.sh      ← o loop: risk, revisão, commit, breaker│
 │  loop/gates.sh      ← prova estratificada L0/L1/L2          │
 │  loop/verificar.py  ← veredito único, anula se árvore mudar │
+│  loop/diff_base.py  ← ponto fixo do diff do Verifier        │
 │  loop/mutar.py      ← mutation testing pontual (risk:high)  │
 │  loop/smoke.sh      ← rebuild limpo + HTTP real (L2)        │
 │  loop/PROMPT_*.md   ← almas dos agentes Builder e Verifier  │
@@ -84,7 +89,7 @@ Detalhamento completo, decisões e trade-offs: **`ARCHITECTURE.md`**.
 # 0. Pré-requisitos: Claude Code autenticado, git, jq, python3, bash
 # 1. Clonar e inicializar
 cp -r specloop meu-projeto && cd meu-projeto
-git init && git add -A && git commit -m "chore: bootstrap SpecLoop v4"
+git init && git add -A && git commit -m "chore: bootstrap SpecLoop v5"
 git config core.hooksPath githooks          # gates L0 em todo commit humano
 
 # 2. (Recomendado) Spec Kit por cima — mesmas convenções, zero conflito
@@ -97,16 +102,20 @@ specify init . --force --integration claude # instala /speckit.* no Claude Code
 
 # 4. Rodar
 ./loop/ralph.sh --dry-run   # plano: id · risk · e2eScope, sem executar
-./loop/ralph.sh             # preflight → loop → gates L1 → S-RELEASE (L2)
+./loop/ralph.sh             # preflight → Builder → gates L1 → Verifier →
+                            # commit pelo loop → ... → S-RELEASE (L2)
 
 # 5. Revisar e medir
 git log --oneline && cat state/progress.md
 python3 loop/metrics_report.py             # painel das 4 famílias
+# /verify <ref>  (em sessão nova) audita do ponto fixo até a árvore de trabalho
 ```
 
-O loop **para sozinho** em três situações desenhadas: história `risk: high`
-concluída (checkpoint humano), mesma falha 3x (circuit breaker) e bloqueio
-reportado pelo agente. Parar é feature, não bug.
+O loop **para sozinho** em cinco situações desenhadas: história `risk: high`
+concluída (checkpoint humano), mesma falha 3x (circuit breaker), bloqueio
+reportado pelo agente, mesma história reprovada pelo Verifier além do teto
+(`MAX_REWORK`, exit 7) e veredito do Verifier ilegível (exit 8). Parar é
+feature, não bug.
 
 ## Trilha de aprendizado
 
@@ -137,8 +146,10 @@ Para estudantes — cada nível destrava o seguinte:
 | 4. Estado | Memória fora do contexto | git + `state/progress.md` + ADRs |
 | 5. Travas | Custo/risco sob controle | preflight, MAX_ITERATIONS, breaker, checkpoint por risco |
 
-Uma iteração = contexto limpo → lê estado → 1 história → TDAD → menor mudança
-→ gates → registra → commit atômico → morre. O estado sobrevive; o contexto não.
+Uma iteração = contexto limpo → lê estado (e `state/review.md`, se o Verifier
+reprovou) → 1 história → TDAD → menor mudança → gates → registra → morre.
+Depois o loop roda o Verifier e só então faz o commit atômico. O estado
+sobrevive; o contexto não.
 
 ## ADRs — a memória do "porquê" (docs/adr/)
 
@@ -153,6 +164,62 @@ Leia os exemplos 0001–0005 (dois nasceram de incidentes reais de produção).
 Caminho de promoção da memória: `progress.md` → destila → **ADR** (julgamento)
 ou **código** (lição determinística, §12) → promove → **constituição** (regra
 universal). Expurgo é destilação, não deleção.
+
+## Novidades v5.0
+
+A v5.0 nasceu de uma comparação com o skill `code-review` de
+mattpocock/skills (revisão em dois eixos, Standards e Spec, a partir de um
+ponto fixo). O skill **não foi instalado**: o eixo Spec dele é mais fraco que
+o Verifier atual, o nome colide com o `/code-review` nativo do Claude Code e
+o modelo de dois subagentes sem veredito único contraria o desenho do loop.
+Três ideias foram absorvidas (`specs/003-verifier-padroes/`) e, na sequência,
+o ciclo de revisão virou mecanismo (`specs/004-revisao-antes-do-commit/`).
+
+| Melhoria | O que faz | Por quê |
+|---|---|---|
+| Revisão antes do commit | Com gates verdes, o `ralph.sh` roda o Verifier sobre o diff ainda não commitado. **APROVADO**: o loop commita. **REPROVADO**: nada é commitado | `ARCHITECTURE.md §3` já desenhava "reprovou → Builder corrige → commit", mas o Builder commitava antes de qualquer auditoria |
+| Correção automática | A saída do Verifier vai para `state/review.md`, a história volta a `passes: false` e o Builder executa as AÇÕES na iteração seguinte, antes de qualquer outra coisa | Uma reprovação dependia de um humano levar o recado de volta ao Builder |
+| O loop commita, não o Builder | O Builder grava a mensagem em `state/.commit_msg`; sem ela, o loop usa uma que cita a história e `refs <specPath>` | Único jeito mecânico de garantir que código reprovado não entra no histórico |
+| Teto de retrabalho | Mais de `MAX_REWORK` (padrão 2) reprovações da mesma história: exit 7, sem commit, `review.md` preservado | Mesmo espírito do circuit breaker — parar e chamar humano em vez de girar |
+| Veredito ilegível não aprova | Saída do Verifier sem `APROVADO` nem `REPROVADO`: exit 8, sem commit | O veredito vem de texto de LLM; ausência de prova não pode virar aprovação |
+| Gates vermelhos revertem `passes` | História marcada pronta com gates falhando volta a `passes: false` | Evita trabalho não commitado de uma história misturado ao da seguinte |
+| `loop/diff_base.py` (ponto fixo) | Entrega o diff do ref base até a árvore de trabalho; ref inexistente sai com 2, nada a auditar sai com 3; arquivos não rastreados são listados | O Verifier só via `git show HEAD`: commit de correção após um REPROVADO ficava fora da auditoria |
+| `/verify <ref>` | Aceita o ponto fixo e recomenda sessão nova | Quem escreveu o código não é auditor independente |
+| Item "Padrões e smells" no Verifier | Doze smells de referência, cada achado com citação; é **observação não bloqueante**, exceto quando já é regra (constituição §4 e §9); duplicação só conta na 3ª ocorrência | O checklist não olhava manutenibilidade; a §9 pede três repetições antes de generalizar |
+
+**CI do próprio template** (`specs/005-ci-do-template/`): o `smoke.sh`
+declara-se não aplicável (com aviso) quando o repositório não tem produto —
+antes o L2 ficava vermelho em todo PR do template; `BASE_URL` definida ou
+`SMOKE_REQUIRED=1` o tornam obrigatório. E `gates.sh` agora **reprova** se
+`loop/tests/` existe e falta `pytest`: a CI pulava esses testes em silêncio.
+
+**Como ajustar**
+
+| Variável | Padrão | Efeito |
+|---|---|---|
+| `VERIFY_RISKS` | `high normal` | Riscos auditados antes do commit. `risk:high` é sempre auditada; `VERIFY_RISKS=high` dispensa as `normal` e reduz custo |
+| `MAX_REWORK` | `2` | Rodadas de correção por história antes do exit 7 |
+| `VERIFY_CMD` | igual a `AGENT_CMD` | Comando do Verifier (permite outro modelo para auditar) |
+
+Histórias `risk:low` commitam direto, sem Verifier. O checkpoint humano e o
+bloqueio de `risk:high` sem veredito registrado (exit 6) continuam valendo.
+Observações de smell não voltam ao Builder — só as AÇÕES de um REPROVADO.
+
+**Limites conhecidos**
+
+- Os testes do fluxo (`loop/tests/test_ralph_revisao.py`) rodam o `ralph.sh`
+  real com Builder e Verifier falsos; ainda não houve corrida com Claude real.
+- "Builder não commita" e "smells" são texto de prompt, não gate.
+- Paradas com exit 7 ou 8 deixam a árvore suja: retome com
+  `ALLOW_DIRTY=1 ./loop/ralph.sh`.
+- Auditar histórias `normal` aumenta custo e latência por iteração.
+
+**Pendente de decisão humana**: o ADR-0009 (`proposto`) registra a mudança
+de quem commita e a extensão do Verifier a histórias `normal`, que o ADR-0007
+(também `proposto`) havia deixado de fora por custo.
+
+Detalhes completos: `specs/003-verifier-padroes/` e
+`specs/004-revisao-antes-do-commit/` (`spec`, `plan`, `tasks`).
 
 ## Novidades v4.0
 
@@ -239,8 +306,18 @@ existem para serem usados conscientemente e raramente.
 (`./loop/gates.sh --level 1 --scope @tag`), corrija a MESMA história
 cirurgicamente, rode de novo. Não descarte trabalho, não pule história.
 
-**Posso usar outro agente que não o Claude Code?** Sim — `AGENT_CMD` é
-configurável; os prompts são markdown puro.
+**Posso usar outro agente que não o Claude Code?** Sim — `AGENT_CMD` (Builder)
+e `VERIFY_CMD` (Verifier) são configuráveis; os prompts são markdown puro.
+
+**O Verifier reprovou a história. Preciso fazer algo?** Não, no caso comum: as
+correções vão para `state/review.md` e o Builder as executa na iteração
+seguinte, sem commit no meio. Você só entra se o loop parar com exit 7 (teto
+de retrabalho) — aí leia o `review.md`: costuma ser spec ambígua ou história
+grande demais.
+
+**Por que não há commit depois da iteração do Builder?** Desde a v5.0 quem
+commita é o loop, e só depois do Verifier aprovar — ver
+[Novidades v5.0](#novidades-v50).
 
 **Por que minha história não roda?** Dependência (`dependsOn`) pendente, ou o
 preflight bloqueou (leia a mensagem — ela cita o incidente que a justifica).
@@ -249,7 +326,8 @@ preflight bloqueou (leia a mensagem — ela cita o incidente que a justifica).
 Verifier APROVADO + revisão humana. As 4 provas estão no template de PR. Em
 histórias `risk:high`, o Verifier APROVADO deixou de ser recomendação na
 v4.0: `ralph.sh` bloqueia (exit 6) sem veredito registrado em
-`state/verdicts.csv` — ver [Novidades v4.0](#novidades-v40).
+`state/verdicts.csv` — ver [Novidades v4.0](#novidades-v40). Na v5.0 o próprio
+loop chama o Verifier antes de commitar.
 
 **Specs dão trabalho. Vale a pena?** FPSR responde com números: spec ruim =
 FPSR baixo = retrabalho pago em tokens e tempo. A spec é a otimização FinOps
@@ -266,7 +344,8 @@ não capturou a intenção · **Gap Spec→Impl** o código divergiu da spec ·
 **Gap Spec→Oráculo** os testes não representam a spec (mock que confirma o
 bug) · **Gates L0/L1/L2** prova rápida / seletiva / de release · **HDE**
 horas-dev equivalentes (custo do loop ÷ custo-hora) · **Harness** o arnês de
-intenção (constituição+specs+ADRs) · **Ralph** padrão de loop com contexto
+intenção (constituição+specs+ADRs) · **Ponto fixo** commit a partir do qual o
+Verifier audita o diff (`loop/diff_base.py`) · **Ralph** padrão de loop com contexto
 limpo e estado em git · **S-RELEASE** história sintética que prova a feature
 inteira (L2) · **TDAD** teste falha antes, passa depois · **Verifier** agente
 auditor que aprova/reprova com evidências · **Worktree** checkout paralelo do

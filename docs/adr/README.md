@@ -16,6 +16,7 @@
 | [0006](0006-mutation-testing-obrigatorio-risk-high.md) | Mutation testing obrigatório em risk:high | proposto |
 | [0007](0007-verifier-obrigatorio-em-risk-high.md) | Veredito do Verifier obrigatório para fechar história risk:high | proposto |
 | [0008](0008-branch-protection-como-codigo.md) | Branch protection como código | proposto |
+| [0009](0009-revisao-automatica-antes-do-commit.md) | Revisão automática antes do commit; o loop commita | proposto |
 
 ## Quando criar um ADR (calibragem — não burocratize)
 

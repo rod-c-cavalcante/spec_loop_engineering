@@ -14,6 +14,17 @@
 #   AGENT_CMD="claude -p"  comando do agente (Claude Code headless)
 #   SKIP_PREFLIGHT=1       pula o preflight (não recomendado)
 #   NO_CHECKPOINT=1        não para após história risk=high (não recomendado)
+#   VERIFY_CMD             comando do Verifier (padrão: AGENT_CMD)
+#   VERIFY_RISKS="high normal"  riscos auditados antes do commit (high sempre)
+#   MAX_REWORK=2           reprovações da mesma história antes de parar
+#
+# Revisão antes do commit (specs/004-revisao-antes-do-commit): o Builder NÃO
+# commita. Gates verdes → Verifier → APROVADO: o loop commita; REPROVADO: a
+# saída vai para state/review.md e o Builder corrige na próxima iteração.
+#
+# Códigos de saída: 0 completo · 1 teto de iterações · 2 circuit breaker ·
+#   3 bloqueio · 5 checkpoint risk=high · 6 risk=high sem veredito registrado ·
+#   7 teto de retrabalho · 8 veredito do Verifier ilegível
 #
 # Autonomia graduada (campo "risk" por história no prd.json):
 #   high   → executa a história e PARA para checkpoint humano (auth,
@@ -28,6 +39,11 @@ MAX_ITERATIONS="${MAX_ITERATIONS:-10}"
 MAX_SAME_FAILURE="${MAX_SAME_FAILURE:-3}"
 ITERATION_TIMEOUT="${ITERATION_TIMEOUT:-1200}"
 AGENT_CMD="${AGENT_CMD:-claude -p --dangerously-skip-permissions --output-format text}"
+VERIFY_CMD="${VERIFY_CMD:-$AGENT_CMD}"
+VERIFY_RISKS="${VERIFY_RISKS-high normal}"
+MAX_REWORK="${MAX_REWORK:-2}"
+REVIEW="state/review.md"
+COMMIT_MSG="state/.commit_msg"
 PRD="loop/prd.json"
 PROGRESS="state/progress.md"
 METRICS="state/metrics.csv"
@@ -44,6 +60,8 @@ mkdir -p state
 pending()     { jq -r '[.userStories[] | select(.passes == false)] | length' "$PRD"; }
 next_story()  { jq -r '[.userStories[] | select(.passes == false)][0].id // "none"' "$PRD"; }
 story_field() { jq -r --arg id "$1" --arg f "$2" '.userStories[] | select(.id==$id) | .[$f] // ""' "$PRD"; }
+# tr -d '\r': jq.exe no Windows grava CRLF e reescreveria o prd.json inteiro.
+set_passes()  { jq --arg id "$1" --argjson v "$2" '(.userStories[] | select(.id==$id) | .passes) = $v' "$PRD" | tr -d '\r' > "$PRD.tmp" && mv "$PRD.tmp" "$PRD"; }
 
 echo "══════════════════════════════════════════════════"
 echo " SpecLoop v2 · $(jq -r '.feature' "$PRD")"
@@ -63,10 +81,16 @@ trap 'rm -f "$LOCK"' EXIT INT TERM
 
 LAST_FAILURE=""
 SAME_FAILURE_COUNT=0
+BASE_STORY=""; STORY_BASE=""; REWORK_COUNT=0
 
 for (( i=1; i<=MAX_ITERATIONS; i++ )); do
   [[ $(pending) -eq 0 ]] && { echo "✔ Backlog completo antes da iteração $i."; break; }
   STORY=$(next_story)
+  # Ponto fixo da auditoria: HEAD de quando a história COMEÇOU — sobrevive às
+  # rodadas de retrabalho (e a um Builder que commite por conta própria).
+  if [[ "$STORY" != "$BASE_STORY" ]]; then
+    BASE_STORY="$STORY"; STORY_BASE=$(git rev-parse HEAD); REWORK_COUNT=0
+  fi
   RISK=$(story_field "$STORY" "risk"); RISK="${RISK:-normal}"
   SCOPE=$(story_field "$STORY" "e2eScope")
 
@@ -138,12 +162,70 @@ for (( i=1; i<=MAX_ITERATIONS; i++ )); do
     exit 3
   fi
 
-  # 6) VERIFIER OBRIGATÓRIO EM RISK:HIGH (specs/002-fortalecimento-v4 T-013)
+  # 6) REVISÃO ANTES DO COMMIT (specs/004-revisao-antes-do-commit)
+  #    O ciclo "Verifier reprovou → Builder corrige → só então commit" estava
+  #    desenhado em ARCHITECTURE.md §3 mas dependia de um humano levar o
+  #    recado. Aqui vira mecanismo: o canal é arquivo (state/review.md), o
+  #    veredito é lido de arquivo (nunca de pipe) e quem commita é o loop.
+  STORY_DONE=$(jq -r --arg id "$STORY" '.userStories[] | select(.id==$id) | .passes' "$PRD")
+  if [[ "$STORY_DONE" == "true" && $GATES_RC -ne 0 ]]; then
+    set_passes "$STORY" false
+    echo "↩ '$STORY' marcada pronta com gates vermelhos — passes revertido; o Builder retoma a MESMA história."
+  elif [[ "$STORY_DONE" == "true" ]]; then
+    if [[ "$RISK" == "high" || " $VERIFY_RISKS " == *" $RISK "* ]]; then
+      VERIFY_OUT="state/.last_verify_output"
+      set +e
+      { cat loop/PROMPT_VERIFY.md
+        printf '\n## Contexto desta auditoria (injetado por ralph.sh)\nSTORY=%s\nBASE=%s\n' "$STORY" "$STORY_BASE"
+      } | timeout "$ITERATION_TIMEOUT" bash -c "$VERIFY_CMD" > "$VERIFY_OUT" 2>&1
+      set -e
+      VERDICT=$(grep -oE 'VEREDITO:[* ]*(APROVADO|REPROVADO)' "$VERIFY_OUT" | tail -1 | grep -oE '(APROVADO|REPROVADO)$' || true)
+      case "$VERDICT" in
+        APROVADO)
+          echo "✔ Verifier APROVOU '$STORY'."
+          rm -f "$REVIEW"
+          ;;
+        REPROVADO)
+          REWORK_COUNT=$((REWORK_COUNT+1))
+          { echo "# Correções pendentes — $STORY (Verifier REPROVOU, rodada $REWORK_COUNT)"
+            echo "> Execute as AÇÕES abaixo ANTES de qualquer outra coisa. Apagado pelo loop ao aprovar."
+            echo
+            cat "$VERIFY_OUT"
+          } > "$REVIEW"
+          set_passes "$STORY" false
+          if [[ $REWORK_COUNT -gt $MAX_REWORK ]]; then
+            echo ""
+            echo "✖ TETO DE RETRABALHO: '$STORY' reprovada ${REWORK_COUNT}x pelo Verifier (MAX_REWORK=$MAX_REWORK)."
+            echo "  Nada foi commitado. Leia $REVIEW, decida (spec ambígua? história grande demais?)"
+            echo "  e retome com: ALLOW_DIRTY=1 ./loop/ralph.sh"
+            exit 7
+          fi
+          echo "↩ Verifier REPROVOU '$STORY' (rodada $REWORK_COUNT/$MAX_REWORK) — correções em $REVIEW; sem commit."
+          continue
+          ;;
+        *)
+          echo ""
+          echo "✖ VEREDITO ILEGÍVEL: a saída do Verifier para '$STORY' não tem APROVADO nem REPROVADO."
+          echo "  Nada foi commitado. Saída em $VERIFY_OUT. Rode /verify $STORY_BASE em sessão nova"
+          echo "  e commite manualmente, ou retome com: ALLOW_DIRTY=1 ./loop/ralph.sh"
+          exit 8
+          ;;
+      esac
+    fi
+    git add -A
+    if ! git diff --cached --quiet; then
+      [[ -s "$COMMIT_MSG" ]] || echo "feat(loop): $STORY, refs $(jq -r '.specPath // ""' "$PRD")" > "$COMMIT_MSG"
+      git commit -q -F "$COMMIT_MSG"
+      echo "   commit: $(git log -1 --format='%h %s')"
+    fi
+    rm -f "$COMMIT_MSG"
+  fi
+
+  # 7) VERIFIER OBRIGATÓRIO EM RISK:HIGH (specs/002-fortalecimento-v4 T-013)
   #    Sem auditoria independente, o mesmo agente implementa, testa e julga —
   #    4 dos 5 falsos-verdes de um período inteiro vieram exatamente disso
   #    (RETROSPECTIVA-005-006.md §4.3). NO_CHECKPOINT pula a PAUSA para
   #    revisão humana; nunca pula a exigência de um veredito registrado.
-  STORY_DONE=$(jq -r --arg id "$STORY" '.userStories[] | select(.id==$id) | .passes' "$PRD")
   if [[ "$RISK" == "high" && "$STORY_DONE" == "true" && $GATES_RC -eq 0 ]]; then
     VERDICTS="state/verdicts.csv"
     LATEST_VERDICT=""
@@ -170,7 +252,7 @@ for (( i=1; i<=MAX_ITERATIONS; i++ )); do
     fi
   fi
 
-  # 7) CONDIÇÃO DUPLA DE SAÍDA — promise E gates E backlog zerado
+  # 8) CONDIÇÃO DUPLA DE SAÍDA — promise E gates E backlog zerado
   if [[ "$RESULT" == "complete_claimed" && $GATES_RC -eq 0 && $(pending) -eq 0 ]]; then
     echo ""
     echo "✔✔ COMPLETO: promise + gates verdes + backlog zerado."

@@ -14,6 +14,11 @@ Este contexto é novo — todo o estado relevante está em arquivos, não em con
 6. A spec e o plan da feature (caminhos indicados no prd.json)
 
 ## Sua missão nesta iteração
+0. **Correções pendentes primeiro.** Se `state/review.md` existir, o Verifier
+   REPROVOU a história atual (ela voltou a `passes: false` e o trabalho
+   anterior está na árvore, não commitado). Execute as AÇÕES listadas ali,
+   cirurgicamente, sem descartar o que já foi feito — depois siga do passo 5.
+   Não apague o arquivo: o loop o remove quando o Verifier aprovar.
 1. Selecione a PRIMEIRA história com `"passes": false` cujas dependências
    (`dependsOn`) já estejam com `passes: true`. Ignore todas as outras.
 2. Releia o(s) critério(s) EARS da spec que essa história cobre.
@@ -41,8 +46,11 @@ Este contexto é novo — todo o estado relevante está em arquivos, não em con
    sobre o codebase que a próxima iteração precisa saber. Ao registrar um gap,
    use a tag padronizada `[gap:intent-spec]`, `[gap:spec-impl]` ou
    `[gap:spec-oraculo]` — o painel de métricas conta essas tags.
-8. Commit atômico:
+8. **NÃO faça commit.** Grave a mensagem do commit atômico em
+   `state/.commit_msg`:
    `feat|fix|chore(<escopo>): <resumo>, refs <specPath do prd.json>`
+   O loop roda o Verifier sobre o seu diff e só commita se ele aprovar
+   (specs/004-revisao-antes-do-commit).
 
 ## Condições de saída (escolha exatamente uma)
 - Restam histórias com `passes: false`? Encerre normalmente (o loop chama a próxima iteração).
@@ -66,5 +74,7 @@ história tocar dado sensível (Art. 11) sem cobertura na spec, emita
 - Declarar sucesso sem gates verdes.
 - Remover/enfraquecer testes para passar.
 - Editar `constitution.md`, fazer push, mexer em mais de uma história.
+- Fazer commit (quem commita é o loop, depois da revisão) ou apagar
+  `state/review.md`.
 - Aceitar, descontinuar ou editar ADRs existentes (agentes só PROPÕEM ADRs).
 - Adicionar dependências sem justificar no plan.md da feature.
